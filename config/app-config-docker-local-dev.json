@@ -1,0 +1,39 @@
+{
+  "App": {
+    "Name": "License Service",
+    "Debug": true,
+    "Mode":  "dev",
+    "GRPCPort": "50051",
+    "RESTPort": "40051"
+  },
+  "Database": {
+    "Driver": "postgres",
+    "Host":   "host.docker.internal",
+    "User":   "scanoss",
+    "Passwd": "secret123!",
+    "Schema": "scanoss",
+    "Trace": false
+  },
+  "Components": {
+    "CommitMissing": false
+  },
+  "TLS": {
+    "CertFile": "",
+    "KeyFile": ""
+  },
+  "Filtering": {
+    "AllowListFile": "",
+    "DenyListFile": "",
+    "BlockByDefault": false,
+    "TrustProxy": false
+  },
+  "TransitiveResources": {
+    "MaxWorkers": 10,
+    "MaxQueueSize": 20000,
+    "DefaultResponseSize": 1000,
+    "MaxResponseSize": 5000,
+    "Timeout": 600,
+    "MaxDepth": 10,
+    "DefaultDepth": 3
+  }
+}
