@@ -33,7 +33,7 @@ func (pb LicenseServer) GetLicenses(ctx context.Context, request *commonv2.Compo
 	return pb.handler.GetLicenses(ctx, s, middleware.NewComponentBatchMiddleware(request, s))
 }
 
-// GetLicenses searches for license information.
+// GetDetails searches for license information.
 func (pb LicenseServer) GetDetails(ctx context.Context, request *pb.LicenseRequest) (*pb.DetailsResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 	return pb.handler.GetDetails(ctx, s, middleware.NewLicenseDetailMiddleware(request, s))

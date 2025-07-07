@@ -20,3 +20,8 @@ func NewLicenseUseCase(s *zap.SugaredLogger, config *myconfig.ServerConfig) *Lic
 func (d LicenseUseCase) GetLicenses(ctx context.Context, components []interfaces.Component) {
 
 }
+
+// GetLicenses
+func (d LicenseUseCase) GetDetails(ctx context.Context, components []interfaces.Component) {
+
+}
