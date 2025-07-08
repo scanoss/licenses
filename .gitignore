@@ -37,3 +37,6 @@ local-build-commands.txt
 .DS_Store
 
 .idea
+
+coverage.txt
+coverage.html

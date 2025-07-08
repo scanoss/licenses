@@ -147,7 +147,7 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 		mockMW := &mockLicenseDetailsMiddleware{
 			processFunc: func() (dto.LicenseRequestDTO, error) {
 				return dto.LicenseRequestDTO{
-					Id: "MIT",
+					ID: "MIT",
 				}, nil
 			},
 		}
