@@ -68,7 +68,7 @@ func (v *SPDXLicenseValidator) buildLicenseMap() {
 }
 
 // LoadFromJSON loads the license list from JSON data
-func (v *SPDXLicenseValidator) LoadFromJSON(data []byte) error {
+func (v *SPDXLicenseValidator) loadFromJSON(data []byte) error {
 	var licenseList SPDXLicenseList
 	if err := json.Unmarshal(data, &licenseList); err != nil {
 		return fmt.Errorf("failed to unmarshal JSON: %v", err)
@@ -84,7 +84,7 @@ func (v *SPDXLicenseValidator) LoadFromJSON(data []byte) error {
 
 // LoadFromEmbeddedAssets loads the license list from embedded assets
 func (v *SPDXLicenseValidator) LoadFromEmbeddedAssets() error {
-	return v.LoadFromJSON(assets.LicensesJSON)
+	return v.loadFromJSON(assets.LicensesJSON)
 }
 
 // IsValidLicenseID checks if a license ID is valid (thread-safe)
