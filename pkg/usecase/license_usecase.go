@@ -4,7 +4,7 @@ import (
 	"context"
 	"go.uber.org/zap"
 	myconfig "scanoss.com/licenses/pkg/config"
-	"scanoss.com/licenses/pkg/interfaces"
+	"scanoss.com/licenses/pkg/dto"
 )
 
 type LicenseUseCase struct {
@@ -17,11 +17,11 @@ func NewLicenseUseCase(s *zap.SugaredLogger, config *myconfig.ServerConfig) *Lic
 }
 
 // GetLicenses
-func (d LicenseUseCase) GetLicenses(ctx context.Context, components []interfaces.Component) {
-
+func (d LicenseUseCase) GetLicenses(ctx context.Context, components []dto.ComponentRequestDTO) {
+	
 }
 
-// GetLicenses
-func (d LicenseUseCase) GetDetails(ctx context.Context, components []interfaces.Component) {
+// GetDetails
+func (d LicenseUseCase) GetDetails(ctx context.Context, components dto.LicenseRequestDTO) {
 
 }
