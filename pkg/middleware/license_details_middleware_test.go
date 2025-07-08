@@ -14,36 +14,43 @@ func TestLicenseDetailsMiddleware(t *testing.T) {
 	tests := []struct {
 		name      string
 		licenseID string
+		expected  dto.LicenseRequestDTO
 		expectErr bool
 	}{
 		{
 			name:      "should process MIT license",
 			licenseID: "MIT",
+			expected:  dto.LicenseRequestDTO{ID: "MIT"},
 			expectErr: false,
 		},
 		{
 			name:      "should process Apache license",
 			licenseID: "Apache-2.0",
+			expected:  dto.LicenseRequestDTO{ID: "Apache-2.0"},
 			expectErr: false,
 		},
 		{
 			name:      "should process GPL license",
 			licenseID: "GPL-3.0",
+			expected:  dto.LicenseRequestDTO{ID: "GPL-3.0"},
 			expectErr: false,
 		},
 		{
 			name:      "should handle empty license ID",
 			licenseID: "",
+			expected:  dto.LicenseRequestDTO{},
 			expectErr: true,
 		},
 		{
 			name:      "should handle invalid license ID",
 			licenseID: "INVALID-LICENSE",
+			expected:  dto.LicenseRequestDTO{},
 			expectErr: true,
 		},
 		{
 			name:      "should process license with custom SPDX-ID",
 			licenseID: "LicenseRef-custom-spdx",
+			expected:  dto.LicenseRequestDTO{ID: "LicenseRef-custom-spdx"},
 			expectErr: false,
 		},
 	}
@@ -57,14 +64,18 @@ func TestLicenseDetailsMiddleware(t *testing.T) {
 				},
 			}
 
-			_, err := middleware.Process()
+			licenseDTO, err := middleware.Process()
 
 			if tt.expectErr {
 				if err == nil {
 					t.Fatalf("Expected error for license ID '%s', but got nil", tt.licenseID)
 				}
-
 			}
+
+			if licenseDTO != tt.expected {
+				t.Fatalf("Expected license ID '%s', but got '%s'", tt.licenseID, licenseDTO.ID)
+			}
+
 		})
 	}
 }

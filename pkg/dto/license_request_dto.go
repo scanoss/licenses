@@ -1,5 +1,5 @@
 package dto
 
 type LicenseRequestDTO struct {
-	Id string `json:"id"`
+	ID string `json:"id"`
 }
