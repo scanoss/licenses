@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	myconfig "scanoss.com/licenses/pkg/config"
-	"scanoss.com/licenses/pkg/interfaces"
+	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/middleware"
 	"scanoss.com/licenses/pkg/usecase"
 )
@@ -44,23 +44,25 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 	return &statusResp
 }
 
-func (h *LicenseHandler) GetLicenses(ctx context.Context, s *zap.SugaredLogger, middleware middleware.Middleware[[]interfaces.Component]) (*pb.BasicResponse, error) {
-	components, err := middleware.Process()
+func (h *LicenseHandler) GetLicenses(ctx context.Context, s *zap.SugaredLogger,
+	middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BasicResponse, error) {
+	componentsDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.BasicResponse{
 			Status:   h.getResponseStatus(s, ctx, common.StatusCode_FAILED, HTTP_CODE_400, err),
 			Licenses: make([]*pb.BasicLicenseResponse, 0)}, err
 	}
 	lu := usecase.NewLicenseUseCase(s, h.config)
-	lu.GetLicenses(ctx, components)
+	lu.GetLicenses(ctx, componentsDTO)
 	return &pb.BasicResponse{
 		Status:   h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, HTTP_CODE_200, err),
 		Licenses: make([]*pb.BasicLicenseResponse, 0),
 	}, err
 }
 
-func (h *LicenseHandler) GetDetails(ctx context.Context, s *zap.SugaredLogger, middleware middleware.Middleware[[]interfaces.Component]) (*pb.DetailsResponse, error) {
-	components, err := middleware.Process()
+func (h *LicenseHandler) GetDetails(ctx context.Context, s *zap.SugaredLogger,
+	middleware middleware.Middleware[dto.LicenseRequestDTO]) (*pb.DetailsResponse, error) {
+	licenseDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.DetailsResponse{
 			Status:  h.getResponseStatus(s, ctx, common.StatusCode_FAILED, HTTP_CODE_400, err),
@@ -68,7 +70,7 @@ func (h *LicenseHandler) GetDetails(ctx context.Context, s *zap.SugaredLogger, m
 		}, err
 	}
 	lu := usecase.NewLicenseUseCase(s, h.config)
-	lu.GetLicenses(ctx, components)
+	lu.GetDetails(ctx, licenseDTO)
 	return &pb.DetailsResponse{
 		Status:  h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, HTTP_CODE_200, err),
 		License: &pb.LicenseResponse{},

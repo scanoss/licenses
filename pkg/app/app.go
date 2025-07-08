@@ -116,6 +116,11 @@ func Boostrap() error {
 
 	v2API := server.NewLicenseServer(cfg, db)
 	ctx := context.Background()
+
+	if err != nil {
+		fmt.Printf("Failed to load SPDX license validator: %v", err)
+		return err
+	}
 	// Start the REST grpc-gateway if requested
 	var srv *http.Server
 	if len(cfg.App.RESTPort) > 0 {

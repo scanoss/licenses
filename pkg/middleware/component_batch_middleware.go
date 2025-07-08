@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/scanoss/papi/api/commonv2"
 	"go.uber.org/zap"
-	"scanoss.com/licenses/pkg/interfaces"
+	"scanoss.com/licenses/pkg/dto"
 	"strings"
 )
 
@@ -14,15 +14,15 @@ type ComponentBatchMiddleware[TOutput any] struct {
 	MiddlewareBase
 }
 
-func NewComponentBatchMiddleware(req *commonv2.ComponentBatchRequest, s *zap.SugaredLogger) Middleware[[]interfaces.Component] {
-	return &ComponentBatchMiddleware[[]interfaces.Component]{
+func NewComponentBatchMiddleware(req *commonv2.ComponentBatchRequest, s *zap.SugaredLogger) Middleware[[]dto.ComponentRequestDTO] {
+	return &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
 		MiddlewareBase: MiddlewareBase{s: s},
 		req:            req,
 	}
 }
 
-func (m *ComponentBatchMiddleware[TOutput]) groupComponentsByPurl(c []interfaces.Component) map[string]interfaces.Component {
-	componentMap := make(map[string]interfaces.Component)
+func (m *ComponentBatchMiddleware[TOutput]) groupComponentsByPurl(c []dto.ComponentRequestDTO) map[string]dto.ComponentRequestDTO {
+	componentMap := make(map[string]dto.ComponentRequestDTO)
 	for _, comp := range c {
 		key := comp.Purl
 		if comp.Requirement != "" {
@@ -31,7 +31,7 @@ func (m *ComponentBatchMiddleware[TOutput]) groupComponentsByPurl(c []interfaces
 		// Handle requests with purl@version
 		splitPurl := strings.Split(comp.Purl, "@")
 		if len(splitPurl) >= 2 {
-			comp = interfaces.Component{
+			comp = dto.ComponentRequestDTO{
 				Purl:        splitPurl[0],
 				Requirement: splitPurl[1],
 			}
@@ -41,20 +41,20 @@ func (m *ComponentBatchMiddleware[TOutput]) groupComponentsByPurl(c []interfaces
 	return componentMap
 }
 
-func (m *ComponentBatchMiddleware[TOutput]) Process() ([]interfaces.Component, error) {
+func (m *ComponentBatchMiddleware[TOutput]) Process() ([]dto.ComponentRequestDTO, error) {
 
 	if len(m.req.GetComponents()) == 0 {
 		m.s.Warn("No components request data supplied to decorate. Ignoring request.")
-		return nil, errors.New("no components request data supplied")
+		return []dto.ComponentRequestDTO{}, errors.New("no components request data supplied")
 	}
 
 	data, err := json.Marshal(m.req.GetComponents())
 	if err != nil {
 		m.s.Errorf("Problem marshalling dependency request input: %v", err)
-		return nil, errors.New("problem marshalling request input data")
+		return []dto.ComponentRequestDTO{}, errors.New("problem marshalling request input data")
 	}
 
-	var componentEntity []interfaces.Component
+	var componentEntity []dto.ComponentRequestDTO
 	err = json.Unmarshal(data, &componentEntity)
 	if err != nil {
 		m.s.Errorf("Parse failure: %v", err)
@@ -64,7 +64,7 @@ func (m *ComponentBatchMiddleware[TOutput]) Process() ([]interfaces.Component, e
 	componentMap := m.groupComponentsByPurl(componentEntity)
 
 	// Convert map to slice
-	components := make([]interfaces.Component, 0, len(componentMap))
+	components := make([]dto.ComponentRequestDTO, 0, len(componentMap))
 	for _, component := range componentMap {
 		components = append(components, component)
 	}
