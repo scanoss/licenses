@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -16,15 +17,17 @@ import (
 )
 
 type LicenseHandler struct {
-	config *myconfig.ServerConfig
-	db     *sqlx.DB
+	config     *myconfig.ServerConfig
+	db         *sqlx.DB
+	licUseCase *usecase.LicenseUseCase
 }
 
 // NewLicenseHandler creates a new instance of License handler.
 func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseHandler {
 	return &LicenseHandler{
-		config: config,
-		db:     db,
+		config:     config,
+		db:         db,
+		licUseCase: usecase.NewLicenseUseCase(config, db),
 	}
 }
 
@@ -44,24 +47,25 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 	return &statusResp
 }
 
-func (h *LicenseHandler) GetLicenses(ctx context.Context, s *zap.SugaredLogger,
+func (h *LicenseHandler) GetLicenses(ctx context.Context,
 	middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BasicResponse, error) {
+	s := ctxzap.Extract(ctx).Sugar()
 	componentsDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.BasicResponse{
 			Status:   h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
 			Licenses: make([]*pb.BasicLicenseResponse, 0)}, err
 	}
-	lu := usecase.NewLicenseUseCase(ctx, s, h.config, h.db)
-	lu.GetLicenses(ctx, componentsDTO)
+	h.licUseCase.GetLicenses(ctx, componentsDTO)
 	return &pb.BasicResponse{
 		Status:   h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
 		Licenses: make([]*pb.BasicLicenseResponse, 0),
 	}, err
 }
 
-func (h *LicenseHandler) GetDetails(ctx context.Context, s *zap.SugaredLogger,
+func (h *LicenseHandler) GetDetails(ctx context.Context,
 	middleware middleware.Middleware[dto.LicenseRequestDTO]) (*pb.DetailsResponse, error) {
+	s := ctxzap.Extract(ctx).Sugar()
 	licenseDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.DetailsResponse{
@@ -69,8 +73,7 @@ func (h *LicenseHandler) GetDetails(ctx context.Context, s *zap.SugaredLogger,
 			License: &pb.LicenseResponse{},
 		}, err
 	}
-	lu := usecase.NewLicenseUseCase(ctx, s, h.config, h.db)
-	licenseDetail, dErr := lu.GetDetails(licenseDTO)
+	licenseDetail, dErr := h.licUseCase.GetDetails(ctx, s, licenseDTO)
 
 	if dErr != nil {
 		s.Errorf("Error getting license details: %v", dErr)

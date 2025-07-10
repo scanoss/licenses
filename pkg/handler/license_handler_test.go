@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/jmoiron/sqlx"
+	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"os"
 	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
@@ -81,6 +82,10 @@ func TestLicenseHandler_getResponseStatus(t *testing.T) {
 }
 
 func TestLicenseHandler_GetLicenses(t *testing.T) {
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
 	config := &myconfig.ServerConfig{}
 	content, err := os.ReadFile("../model/tests/licenses.sql")
 	if err != nil {
@@ -96,8 +101,7 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 		t.Fatalf("Error reading SQL file: %v", err)
 	}
 	handler := NewLicenseHandler(config, db)
-	ctx := context.Background()
-	logger := ctxzap.Extract(ctx).Sugar()
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockMiddleware{
@@ -108,7 +112,7 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 			},
 		}
 
-		response, err := handler.GetLicenses(ctx, logger, mockMW)
+		response, err := handler.GetLicenses(ctx, mockMW)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -134,7 +138,7 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 			},
 		}
 
-		response, err := handler.GetLicenses(ctx, logger, mockMW)
+		response, err := handler.GetLicenses(ctx, mockMW)
 
 		if err == nil {
 			t.Error("Expected error, got nil")
@@ -155,6 +159,10 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 }
 
 func TestLicenseHandler_GetDetails(t *testing.T) {
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
 	config := &myconfig.ServerConfig{}
 	content, err := os.ReadFile("../model/tests/licenses.sql")
 	if err != nil {
@@ -170,8 +178,7 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 		t.Fatalf("Error reading SQL file: %v", err)
 	}
 	handler := NewLicenseHandler(config, db)
-	ctx := context.Background()
-	logger := ctxzap.Extract(ctx).Sugar()
+	ctx := ctxzap.ToContext(context.Background(), zap.NewNop())
 
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockLicenseDetailsMiddleware{
@@ -182,7 +189,7 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 			},
 		}
 
-		response, err := handler.GetDetails(ctx, logger, mockMW)
+		response, err := handler.GetDetails(ctx, mockMW)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -208,7 +215,7 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 			},
 		}
 
-		response, err := handler.GetDetails(ctx, logger, mockMW)
+		response, err := handler.GetDetails(ctx, mockMW)
 
 		if err == nil {
 			t.Error("Expected error, got nil")

@@ -8,6 +8,7 @@ import (
 	pb "github.com/scanoss/papi/api/licensesv2"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	models "scanoss.com/licenses/pkg/model"
@@ -20,7 +21,7 @@ type MockLicenseModel struct {
 	mock.Mock
 }
 
-func (m *MockLicenseModel) GetLicenseByID(id string) (models.License, error) {
+func (m *MockLicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, id string) (models.License, error) {
 	args := m.Called(id)
 	return args.Get(0).(models.License), args.Error(1)
 }
@@ -177,8 +178,8 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usecase := NewLicenseUseCaseWithLicenseModel(ctx, s, config, tt.licModel)
-			_, usecaseErr := usecase.GetDetails(tt.licenseRequest)
+			usecase := NewLicenseUseCaseWithLicenseModel(config, tt.licModel)
+			_, usecaseErr := usecase.GetDetails(ctx, s, tt.licenseRequest)
 			if tt.expectErr {
 				if usecaseErr == nil {
 					{
