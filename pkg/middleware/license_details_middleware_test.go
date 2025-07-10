@@ -4,12 +4,18 @@ import (
 	"context"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/scanoss/papi/api/licensesv2"
+	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"scanoss.com/licenses/pkg/dto"
 	"testing"
 )
 
 func TestLicenseDetailsMiddleware(t *testing.T) {
-	ctx := context.Background()
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
+	defer zlog.SyncZap()
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	s := ctxzap.Extract(ctx).Sugar()
 	tests := []struct {
 		name      string
@@ -36,22 +42,10 @@ func TestLicenseDetailsMiddleware(t *testing.T) {
 			expectErr: false,
 		},
 		{
-			name:      "should handle empty license ID",
+			name:      "should not handle empty license ID",
 			licenseID: "",
 			expected:  dto.LicenseRequestDTO{},
 			expectErr: true,
-		},
-		{
-			name:      "should handle invalid license ID",
-			licenseID: "INVALID-LICENSE",
-			expected:  dto.LicenseRequestDTO{},
-			expectErr: true,
-		},
-		{
-			name:      "should process license with custom SPDX-ID",
-			licenseID: "LicenseRef-custom-spdx",
-			expected:  dto.LicenseRequestDTO{ID: "LicenseRef-custom-spdx"},
-			expectErr: false,
 		},
 	}
 

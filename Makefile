@@ -47,7 +47,7 @@ lint_docker: ## Run docker instance of linting across the code base
 
 run_local:  ## Launch the API locally for test
 	@echo "Launching API locally..."
-	go run cmd/server/main.go -json-config config/app-config-dev.json -debug
+	go run cmd/license-api/license-api.go -json-config config/app-config-dev.json -debug
 
 ghcr_build: version  ## Build GitHub container image
 	@echo "Building GHCR container image..."
