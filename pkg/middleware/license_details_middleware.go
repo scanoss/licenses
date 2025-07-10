@@ -1,10 +1,11 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	pb "github.com/scanoss/papi/api/licensesv2"
-	"go.uber.org/zap"
 	"scanoss.com/licenses/pkg/dto"
 )
 
@@ -13,10 +14,10 @@ type LicenseDetailMiddleware[TOutput any] struct {
 	MiddlewareBase
 }
 
-func NewLicenseDetailMiddleware(req *pb.LicenseRequest, s *zap.SugaredLogger) Middleware[dto.LicenseRequestDTO] {
+func NewLicenseDetailMiddleware(req *pb.LicenseRequest, ctx context.Context) Middleware[dto.LicenseRequestDTO] {
 	return &LicenseDetailMiddleware[dto.LicenseRequestDTO]{
 		req:            req,
-		MiddlewareBase: MiddlewareBase{s: s},
+		MiddlewareBase: MiddlewareBase{s: ctxzap.Extract(ctx).Sugar()},
 	}
 }
 

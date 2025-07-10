@@ -14,19 +14,15 @@ import (
 )
 
 type LicenseUseCase struct {
-	s        *zap.SugaredLogger
-	ctx      context.Context
 	config   *myconfig.ServerConfig
 	licModel models.LicenseModelInterface
 	db       *sqlx.DB
 }
 
-func NewLicenseUseCase(ctx context.Context, s *zap.SugaredLogger, config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
+func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
 	return &LicenseUseCase{
-		s:        s,
-		ctx:      ctx,
 		config:   config,
-		licModel: models.NewLicenseModel(ctx, s, db),
+		licModel: models.NewLicenseModel(db),
 		db:       db,
 	}
 }
@@ -34,10 +30,8 @@ func NewLicenseUseCase(ctx context.Context, s *zap.SugaredLogger, config *myconf
 type Option func(*LicenseUseCase)
 
 // WithLicenseModel option for dependency injection (mainly for testing)
-func NewLicenseUseCaseWithLicenseModel(ctx context.Context, s *zap.SugaredLogger, config *myconfig.ServerConfig, model models.LicenseModelInterface) *LicenseUseCase {
+func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, model models.LicenseModelInterface) *LicenseUseCase {
 	return &LicenseUseCase{
-		ctx:      ctx,
-		s:        s,
 		config:   config,
 		licModel: model,
 	}
@@ -49,16 +43,16 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, components []dto.Compo
 }
 
 // GetDetails
-func (lu LicenseUseCase) GetDetails(lic dto.LicenseRequestDTO) (pb.LicenseResponse, *Error) {
-	license, err := lu.licModel.GetLicenseByID(lic.ID)
+func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseResponse, *Error) {
+	license, err := lu.licModel.GetLicenseByID(ctx, s, lic.ID)
 	if err != nil {
 		return pb.LicenseResponse{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
 	if license.ID == 0 {
-		lu.s.Warnf("License not found: %s", lic.ID)
+		s.Warnf("License not found: %s", lic.ID)
 		return pb.LicenseResponse{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "License not found", Error: errors.New("license not found")}
 	}
-	lu.s.Debugf("License: %v", license)
+	s.Debugf("License: %v", license)
 	return pb.LicenseResponse{
 		FullName: license.Name,
 		Spdx: &pb.SPDX{
