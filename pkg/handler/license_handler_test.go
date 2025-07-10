@@ -3,6 +3,10 @@ package handler
 import (
 	"context"
 	"errors"
+	"github.com/jmoiron/sqlx"
+	"os"
+	models "scanoss.com/licenses/pkg/model"
+	"scanoss.com/licenses/pkg/protocol/rest"
 	"testing"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
@@ -31,7 +35,7 @@ func (m *mockLicenseDetailsMiddleware) Process() (dto.LicenseRequestDTO, error) 
 
 func TestNewLicenseHandler(t *testing.T) {
 	config := &myconfig.ServerConfig{}
-	handler := NewLicenseHandler(config)
+	handler := NewLicenseHandler(config, &sqlx.DB{})
 
 	if handler == nil {
 		t.Fatal("Expected handler to be created, got nil")
@@ -44,13 +48,13 @@ func TestNewLicenseHandler(t *testing.T) {
 
 func TestLicenseHandler_getResponseStatus(t *testing.T) {
 	config := &myconfig.ServerConfig{}
-	handler := NewLicenseHandler(config)
+	handler := NewLicenseHandler(config, &sqlx.DB{})
 	ctx := context.Background()
 	logger := zap.NewNop().Sugar()
 
 	t.Run("success case", func(t *testing.T) {
 		ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{}))
-		status := handler.getResponseStatus(logger, ctx, common.StatusCode_SUCCESS, HTTP_CODE_200, nil)
+		status := handler.getResponseStatus(logger, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, nil)
 
 		if status.Status != common.StatusCode_SUCCESS {
 			t.Errorf("Expected status SUCCESS, got %v", status.Status)
@@ -64,7 +68,7 @@ func TestLicenseHandler_getResponseStatus(t *testing.T) {
 	t.Run("error case", func(t *testing.T) {
 		ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{}))
 		err := errors.New("test error")
-		status := handler.getResponseStatus(logger, ctx, common.StatusCode_FAILED, HTTP_CODE_400, err)
+		status := handler.getResponseStatus(logger, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err)
 
 		if status.Status != common.StatusCode_FAILED {
 			t.Errorf("Expected status FAILED, got %v", status.Status)
@@ -78,7 +82,20 @@ func TestLicenseHandler_getResponseStatus(t *testing.T) {
 
 func TestLicenseHandler_GetLicenses(t *testing.T) {
 	config := &myconfig.ServerConfig{}
-	handler := NewLicenseHandler(config)
+	content, err := os.ReadFile("../model/tests/licenses.sql")
+	if err != nil {
+		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer models.CloseDB(db)
+	_, err = db.Exec(string(content))
+	if err != nil {
+		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	handler := NewLicenseHandler(config, db)
 	ctx := context.Background()
 	logger := ctxzap.Extract(ctx).Sugar()
 
@@ -139,7 +156,20 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 
 func TestLicenseHandler_GetDetails(t *testing.T) {
 	config := &myconfig.ServerConfig{}
-	handler := NewLicenseHandler(config)
+	content, err := os.ReadFile("../model/tests/licenses.sql")
+	if err != nil {
+		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer models.CloseDB(db)
+	_, err = db.Exec(string(content))
+	if err != nil {
+		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	handler := NewLicenseHandler(config, db)
 	ctx := context.Background()
 	logger := ctxzap.Extract(ctx).Sugar()
 

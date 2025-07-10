@@ -4,13 +4,19 @@ import (
 	"context"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/scanoss/papi/api/commonv2"
+	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"scanoss.com/licenses/pkg/dto"
 
 	"testing"
 )
 
 func TestComponentBatchMiddleware(t *testing.T) {
-	ctx := context.Background()
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
+	defer zlog.SyncZap()
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	s := ctxzap.Extract(ctx).Sugar()
 	middleware := &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
 		MiddlewareBase: MiddlewareBase{s: s},

@@ -6,7 +6,6 @@ import (
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
 	"scanoss.com/licenses/pkg/dto"
-	"scanoss.com/licenses/pkg/service"
 )
 
 type LicenseDetailMiddleware[TOutput any] struct {
@@ -26,12 +25,6 @@ func (m *LicenseDetailMiddleware[TOutput]) Process() (dto.LicenseRequestDTO, err
 	if len(m.req.GetId()) == 0 {
 		m.s.Warn("No license request data supplied to decorate. Ignoring request.")
 		return dto.LicenseRequestDTO{}, errors.New("no license request data supplied")
-	}
-
-	spdxValidator := service.GetSPDXValidator()
-	if !spdxValidator.IsValidLicenseID(m.req.GetId()) {
-		m.s.Warn("Invalid license ID supplied to decorate. Ignoring request.")
-		return dto.LicenseRequestDTO{}, errors.New("invalid license ID supplied")
 	}
 
 	data, err := json.Marshal(m.req)

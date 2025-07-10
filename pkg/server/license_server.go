@@ -23,7 +23,7 @@ func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServ
 	return &LicenseServer{
 		config:  config,
 		db:      db,
-		handler: handler.NewLicenseHandler(config),
+		handler: handler.NewLicenseHandler(config, db),
 	}
 }
 
