@@ -1,10 +1,11 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/scanoss/papi/api/commonv2"
-	"go.uber.org/zap"
 	"scanoss.com/licenses/pkg/dto"
 	"strings"
 )
@@ -14,9 +15,9 @@ type ComponentBatchMiddleware[TOutput any] struct {
 	MiddlewareBase
 }
 
-func NewComponentBatchMiddleware(req *commonv2.ComponentBatchRequest, s *zap.SugaredLogger) Middleware[[]dto.ComponentRequestDTO] {
+func NewComponentBatchMiddleware(req *commonv2.ComponentBatchRequest, ctx context.Context) Middleware[[]dto.ComponentRequestDTO] {
 	return &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
-		MiddlewareBase: MiddlewareBase{s: s},
+		MiddlewareBase: MiddlewareBase{s: ctxzap.Extract(ctx).Sugar()},
 		req:            req,
 	}
 }

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -29,12 +28,10 @@ func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServ
 
 // GetLicenses searches for license information.
 func (pb LicenseServer) GetLicenses(ctx context.Context, request *commonv2.ComponentBatchRequest) (*pb.BasicResponse, error) {
-	s := ctxzap.Extract(ctx).Sugar()
-	return pb.handler.GetLicenses(ctx, s, middleware.NewComponentBatchMiddleware(request, s))
+	return pb.handler.GetLicenses(ctx, middleware.NewComponentBatchMiddleware(request, ctx))
 }
 
 // GetDetails searches for license information.
 func (pb LicenseServer) GetDetails(ctx context.Context, request *pb.LicenseRequest) (*pb.DetailsResponse, error) {
-	s := ctxzap.Extract(ctx).Sugar()
-	return pb.handler.GetDetails(ctx, s, middleware.NewLicenseDetailMiddleware(request, s))
+	return pb.handler.GetDetails(ctx, middleware.NewLicenseDetailMiddleware(request, ctx))
 }

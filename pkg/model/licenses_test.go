@@ -41,7 +41,7 @@ func TestLicensesById(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}
-	licenseModel := NewLicenseModel(ctx, s, db)
+	licenseModel := NewLicenseModel(db)
 
 	tests := []struct {
 		licenseID string
@@ -63,7 +63,7 @@ func TestLicensesById(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.licenseID, func(t *testing.T) {
-			license, err := licenseModel.GetLicenseByID(test.licenseID)
+			license, err := licenseModel.GetLicenseByID(ctx, s, test.licenseID)
 			if test.expectErr {
 				if err == nil {
 					t.Errorf("licenses.GetLicenseByID() error = %v, wantErr %v", err, test.expectErr)

@@ -31,13 +31,11 @@ import (
 )
 
 type LicenseModelInterface interface {
-	GetLicenseByID(id string) (License, error)
+	GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, id string) (License, error)
 }
 
 type LicenseModel struct {
-	ctx context.Context
-	s   *zap.SugaredLogger
-	db  *sqlx.DB
+	db *sqlx.DB
 }
 
 type SeeAlso []string
@@ -96,22 +94,22 @@ type License struct {
 }
 
 // NewLicenseModel create a new instance of the License Model.
-func NewLicenseModel(ctx context.Context, s *zap.SugaredLogger, db *sqlx.DB) *LicenseModel {
-	return &LicenseModel{ctx: ctx, s: s, db: db}
+func NewLicenseModel(db *sqlx.DB) *LicenseModel {
+	return &LicenseModel{db: db}
 }
 
 // GetLicenseByID retrieves license data by the given row ID.
-func (m *LicenseModel) GetLicenseByID(licenseId string) (License, error) {
-	conn, err := NewConn(m.ctx, m.db)
+func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, licenseId string) (License, error) {
+	conn, err := NewConn(ctx, m.db)
 	if err != nil {
 		return License{}, err
 	}
 	licenseIDToUpper := strings.ToUpper(licenseId)
 	var license License
-	err = conn.QueryRowxContext(m.ctx,
+	err = conn.QueryRowxContext(ctx,
 		"SELECT * FROM licenses WHERE UPPER(license_id) = $1", licenseIDToUpper).StructScan(&license)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		m.s.Errorf("Error: Failed to query license table for %v: %#v", licenseIDToUpper, err)
+		s.Errorf("Error: Failed to query license table for %v: %#v", licenseIDToUpper, err)
 		return License{}, fmt.Errorf("failed to query the license table: %v", err)
 	}
 	return license, nil
