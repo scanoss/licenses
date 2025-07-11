@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
+	"github.com/scanoss/go-models/pkg/scanoss"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
@@ -12,6 +13,7 @@ import (
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/middleware"
+	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
 	"scanoss.com/licenses/pkg/usecase"
 )
@@ -56,6 +58,7 @@ func (h *LicenseHandler) GetLicenses(ctx context.Context,
 			Status:   h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
 			Licenses: make([]*pb.BasicLicenseResponse, 0)}, err
 	}
+
 	h.licUseCase.GetLicenses(ctx, componentsDTO)
 	return &pb.BasicResponse{
 		Status:   h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),

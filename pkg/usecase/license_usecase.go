@@ -3,7 +3,11 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/jmoiron/sqlx"
+	"github.com/scanoss/go-grpc-helper/pkg/grpc/database"
+	"github.com/scanoss/go-models/pkg/scanoss"
+	"github.com/scanoss/go-models/pkg/types"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
@@ -42,8 +46,22 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licModel m
 }
 
 // GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, components []dto.ComponentRequestDTO) {
+func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, components []dto.ComponentRequestDTO) (pb.BasicLicenseResponse, *Error) {
 
+	conn, err := models.NewConn(ctx, lu.db)
+	if err != nil {
+		return pb.BasicLicenseResponse{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
+	}
+
+	client := scanoss.New(ctx, s, conn, database.NewDBSelectContext(s, lu.db, conn, false))
+
+	comp, err := client.Component.GetComponent(types.ComponentRequest{
+		Purl:        components[0].Purl,
+		Requirement: components[0].Requirement,
+	})
+
+	fmt.Printf("purl: %s version: %s", comp.Purl, comp.Version)
+	return pb.BasicLicenseResponse{}, &Error{}
 }
 
 // GetDetails

@@ -14,7 +14,10 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.73.0
 	modernc.org/sqlite v1.38.0
+	github.com/scanoss/go-models v0.0.1
 )
+
+replace github.com/scanoss/go-models v0.0.1 => ../go-models
 
 require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
@@ -28,6 +31,7 @@ require (
 	github.com/golobby/dotenv v1.3.2 // indirect
 	github.com/golobby/env/v2 v2.2.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
@@ -53,6 +57,7 @@ require (
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
