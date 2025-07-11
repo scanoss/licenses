@@ -32,10 +32,12 @@ func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCa
 type Option func(*LicenseUseCase)
 
 // WithLicenseModel option for dependency injection (mainly for testing)
-func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, model models.LicenseModelInterface) *LicenseUseCase {
+func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licModel models.LicenseModelInterface,
+	osadlModel models.OSADLModelInterface) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:   config,
-		licModel: model,
+		config:     config,
+		licModel:   licModel,
+		osadlModel: osadlModel,
 	}
 }
 
