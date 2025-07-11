@@ -14,16 +14,18 @@ import (
 )
 
 type LicenseUseCase struct {
-	config   *myconfig.ServerConfig
-	licModel models.LicenseModelInterface
-	db       *sqlx.DB
+	config     *myconfig.ServerConfig
+	licModel   models.LicenseModelInterface
+	osadlModel models.OSADLModelInterface
+	db         *sqlx.DB
 }
 
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:   config,
-		licModel: models.NewLicenseModel(db),
-		db:       db,
+		config:     config,
+		licModel:   models.NewLicenseModel(db),
+		osadlModel: models.NewOSADLModel(db),
+		db:         db,
 	}
 }
 
@@ -53,6 +55,14 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 		return pb.LicenseResponse{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "License not found", Error: errors.New("license not found")}
 	}
 	s.Debugf("License: %v", license)
+
+	osadl, err := lu.osadlModel.GetOSADLByLicenseId(ctx, s, license.LicenseId)
+	if err != nil {
+		s.Errorf("Error getting OSADL for license: %s, err: %v\n", lic.ID, err)
+	}
+
+	s.Debugf("OSADL: %v", osadl)
+
 	return pb.LicenseResponse{
 		FullName: license.Name,
 		Spdx: &pb.SPDX{
@@ -64,6 +74,13 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 			IsOsiApproved: license.IsOsiApproved,
 			SeeAlso:       license.SeeAlso,
 			IsFsfLibre:    license.IsFsfLibre,
+		},
+		Osadl: &pb.OSADL{
+			Compatibility:          osadl.Compatibilities,
+			Incompatibility:        osadl.Incompatibilities,
+			CopyleftClause:         osadl.CopyleftClause,
+			DependingCompatibility: osadl.DependingCompatibilities,
+			PatentHints:            osadl.PatentHints,
 		},
 	}, nil
 }
