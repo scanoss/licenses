@@ -63,12 +63,6 @@ func (s JSONStringSlice) Value() (driver.Value, error) {
 	return string(data), nil
 }
 
-// Now define your specific types as aliases
-type Compatibilities JSONStringSlice
-type Incompatibilities JSONStringSlice
-type DependingCompatibilities JSONStringSlice
-type UseCases JSONStringSlice
-
 type OSADL struct {
 	ID                       int32           `json:"id" db:"id"`
 	LicenseId                string          `json:"licenseId" db:"license_id"`
