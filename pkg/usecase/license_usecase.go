@@ -11,21 +11,24 @@ import (
 	"scanoss.com/licenses/pkg/dto"
 	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
+	"strings"
 )
 
 type LicenseUseCase struct {
-	config     *myconfig.ServerConfig
-	licModel   models.LicenseModelInterface
-	osadlModel models.OSADLModelInterface
-	db         *sqlx.DB
+	config                *myconfig.ServerConfig
+	licModel              models.LicenseModelInterface
+	osadlModel            models.OSADLModelInterface
+	componentLicenseModel models.ComponentLicenseModelInterface
+	db                    *sqlx.DB
 }
 
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:     config,
-		licModel:   models.NewLicenseModel(db),
-		osadlModel: models.NewOSADLModel(db),
-		db:         db,
+		config:                config,
+		licModel:              models.NewLicenseModel(db),
+		osadlModel:            models.NewOSADLModel(db),
+		componentLicenseModel: models.NewComponentLicenseModel(db),
+		db:                    db,
 	}
 }
 
@@ -33,17 +36,54 @@ type Option func(*LicenseUseCase)
 
 // WithLicenseModel option for dependency injection (mainly for testing)
 func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licModel models.LicenseModelInterface,
-	osadlModel models.OSADLModelInterface) *LicenseUseCase {
+	osadlModel models.OSADLModelInterface, componentLicenseModel models.ComponentLicenseModelInterface) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:     config,
-		licModel:   licModel,
-		osadlModel: osadlModel,
+		config:                config,
+		licModel:              licModel,
+		osadlModel:            osadlModel,
+		componentLicenseModel: componentLicenseModel,
 	}
 }
 
 // GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, components []dto.ComponentRequestDTO) {
+func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, components []dto.ComponentRequestDTO) (pb.BasicResponse, *Error) {
 
+	componentLicenses, err := lu.componentLicenseModel.GetComponentLicenses(ctx, s, ""): // TODO: generate MD5 for every purl+version
+	if err != nil {
+		s.Warn(err)
+	}
+	s.Debugf("Component Licenses: %v", componentLicenses)
+
+	if len(componentLicenses) == 0 {
+		return pb.BasicResponse{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "No licenses found", Error: errors.New("no licenses found")}
+	}
+
+	var response pb.BasicResponse
+	response.Statement = componentLicenses[0].Statement
+
+	var licenses []*pb.BasicLicenseResponse
+	for _, cl := range componentLicenses {
+		trimmedSPDXIdentifiers := strings.TrimSpace(strings.ReplaceAll(cl.SPDXIdentifiers, " ", ""))
+		s.Debugf("SPDX Identifiers: %s", trimmedSPDXIdentifiers)
+		// Then split by "/"
+		spdxIDS := strings.Split(trimmedSPDXIdentifiers, "/")
+		for _, spdxID := range spdxIDS {
+			s.Debugf("SPDX ID: %s", spdxID)
+			license, errLic := lu.licModel.GetLicenseByID(ctx, s, spdxID)
+			if errLic != nil {
+				s.Warn(errLic)
+			}
+			s.Debugf("LICENSE: %v", license)
+			licenses = append(licenses, &pb.BasicLicenseResponse{
+				Id:       spdxID,
+				FullName: license.Name,
+			})
+		}
+	}
+	s.Debugf("LICENSES: %v", licenses)
+	response.Licenses = licenses
+	s.Debugf("RESONSE: %v\n", &response)
+	return response, nil
 }
 
 // GetDetails

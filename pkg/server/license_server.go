@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -28,10 +29,12 @@ func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServ
 
 // GetLicenses searches for license information.
 func (pb LicenseServer) GetLicenses(ctx context.Context, request *commonv2.ComponentBatchRequest) (*pb.BasicResponse, error) {
+	fmt.Printf("Licenses Request: %v\n", request)
 	return pb.handler.GetLicenses(ctx, middleware.NewComponentBatchMiddleware(request, ctx))
 }
 
 // GetDetails searches for license information.
 func (pb LicenseServer) GetDetails(ctx context.Context, request *pb.LicenseRequest) (*pb.DetailsResponse, error) {
+	fmt.Printf("Get License Details Request: %v\n", request)
 	return pb.handler.GetDetails(ctx, middleware.NewLicenseDetailMiddleware(request, ctx))
 }

@@ -42,3 +42,4 @@ coverage.txt
 coverage.html
 
 licenses.sqlite
+licenses.sqlite-journal

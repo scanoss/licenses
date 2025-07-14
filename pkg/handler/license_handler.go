@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 	common "github.com/scanoss/papi/api/commonv2"
@@ -51,15 +52,26 @@ func (h *LicenseHandler) GetLicenses(ctx context.Context,
 	middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BasicResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 	componentsDTO, err := middleware.Process()
+	fmt.Println("Getting component licenses")
+	s.Debugf("Getting component licenses for: %v", componentsDTO)
 	if err != nil {
 		return &pb.BasicResponse{
 			Status:   h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
 			Licenses: make([]*pb.BasicLicenseResponse, 0)}, err
 	}
-	h.licUseCase.GetLicenses(ctx, componentsDTO)
+	s.Debugf("Getting component licenses for: %v", componentsDTO)
+	componentLicenses, dErr := h.licUseCase.GetLicenses(ctx, s, componentsDTO)
+	if dErr != nil {
+		s.Errorf("Error getting component licenses: %v", dErr)
+		return &pb.BasicResponse{
+			Status:   h.getResponseStatus(s, ctx, dErr.Status, dErr.Code, dErr.Error),
+			Licenses: []*pb.BasicLicenseResponse{},
+		}, dErr.Error
+	}
 	return &pb.BasicResponse{
-		Status:   h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
-		Licenses: make([]*pb.BasicLicenseResponse, 0),
+		Status:    h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
+		Statement: componentLicenses.Statement,
+		Licenses:  componentLicenses.Licenses,
 	}, err
 }
 
