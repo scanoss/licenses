@@ -2,8 +2,11 @@ package handler
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
+	gd "github.com/scanoss/go-grpc-helper/pkg/grpc/database"
 	"github.com/scanoss/go-models/pkg/scanoss"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -13,7 +16,6 @@ import (
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/middleware"
-	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
 	"scanoss.com/licenses/pkg/usecase"
 )
@@ -49,44 +51,48 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 	return &statusResp
 }
 
-func (h *LicenseHandler) GetLicenses(ctx context.Context,
-	middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BasicResponse, error) {
+func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BatchLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
+	q := gd.NewDBSelectContext(s, h.db, nil, false)
+	sc := scanoss.New(ctx, s, q, h.db)
+
 	componentsDTO, err := middleware.Process()
 	if err != nil {
-		return &pb.BasicResponse{
-			Status:   h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
-			Licenses: make([]*pb.BasicLicenseResponse, 0)}, err
+		return &pb.BatchLicenseResponse{
+			Status:     h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
+			Components: []*pb.ComponentLicenseInfo{},
+		}, nil
 	}
 
-	h.licUseCase.GetLicenses(ctx, componentsDTO)
-	return &pb.BasicResponse{
-		Status:   h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
-		Licenses: make([]*pb.BasicLicenseResponse, 0),
-	}, err
+	h.licUseCase.GetLicenses(ctx, s, sc, componentsDTO)
+
+	return &pb.BatchLicenseResponse{
+		Status:     h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
+		Components: []*pb.ComponentLicenseInfo{},
+	}, nil
 }
 
-func (h *LicenseHandler) GetDetails(ctx context.Context,
-	middleware middleware.Middleware[dto.LicenseRequestDTO]) (*pb.DetailsResponse, error) {
+func (h *LicenseHandler) GetDetails(ctx context.Context, middleware middleware.Middleware[dto.LicenseRequestDTO]) (*pb.LicenseDetailsResponse, error) {
+	fmt.Print(ctx)
 	s := ctxzap.Extract(ctx).Sugar()
 	licenseDTO, err := middleware.Process()
 	if err != nil {
-		return &pb.DetailsResponse{
+		return &pb.LicenseDetailsResponse{
 			Status:  h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
-			License: &pb.LicenseResponse{},
+			License: &pb.LicenseDetails{},
 		}, err
 	}
 	licenseDetail, dErr := h.licUseCase.GetDetails(ctx, s, licenseDTO)
 
 	if dErr != nil {
 		s.Errorf("Error getting license details: %v", dErr)
-		return &pb.DetailsResponse{
+		return &pb.LicenseDetailsResponse{
 			Status:  h.getResponseStatus(s, ctx, dErr.Status, dErr.Code, dErr.Error),
-			License: &pb.LicenseResponse{},
+			License: &pb.LicenseDetails{},
 		}, dErr.Error
 	}
 
-	return &pb.DetailsResponse{
+	return &pb.LicenseDetailsResponse{
 		Status:  h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
 		License: &licenseDetail,
 	}, err
