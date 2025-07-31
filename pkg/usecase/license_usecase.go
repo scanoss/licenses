@@ -45,7 +45,7 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licModel m
 }
 
 // GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, sc *scanoss.Client, components []dto.ComponentRequestDTO) (pb.ComponentLicenseInfo, *Error) {
+func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, sc *scanoss.Client, components []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 
 	for _, c := range components {
 		_, _ = sc.Component.GetComponent(types.ComponentRequest{
@@ -55,7 +55,18 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, 
 
 	}
 
-	return pb.ComponentLicenseInfo{}, &Error{}
+	var a []*pb.ComponentLicenseInfo
+
+	a = append(a, &pb.ComponentLicenseInfo{
+		Purl:      "example",
+		Version:   "v1.0.0",
+		Statement: "GPL",
+		Licenses: []*pb.LicenseInfo{
+			{Id: "GPL v2", FullName: "General Public Licence V2"},
+		},
+	})
+
+	return a, nil
 }
 
 // GetDetails
