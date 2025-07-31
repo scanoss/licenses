@@ -64,11 +64,11 @@ func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.
 		}, nil
 	}
 
-	h.licUseCase.GetLicenses(ctx, s, sc, componentsDTO)
+	l, _ := h.licUseCase.GetLicenses(ctx, s, sc, componentsDTO)
 
 	return &pb.BatchLicenseResponse{
-		Status:     h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
-		Components: []*pb.ComponentLicenseInfo{},
+		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
+		Components: l,
 	}, nil
 }
 
