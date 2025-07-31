@@ -1,25 +1,15 @@
 {
   "App": {
     "Name": "License Service",
-    "Debug": true,
-    "Mode":  "dev",
-    "GRPCPort": "50051",
-    "RESTPort": "40051"
-  },
-  "Telemetry": {
-    "Enabled": true,
-    "OltpExporter": "0.0.0.0:4317"
+    "Debug": false,
+    "Mode":  "prod",
+    "GRPCPort": "50059",
+    "RESTPort": "40059"
   },
   "Database": {
-    "Driver": "postgres",
-    "Host":   "localhost",
-    "User":   "scanoss",
-    "Passwd": "secret123!",
-    "Schema": "scanoss",
+    "Driver": "sqlite",
+    "Dsn": "/data/sqlite/licenses/base.sqlite?cache=shared&mode=memory",
     "Trace": false
-  },
-  "Components": {
-    "CommitMissing": false
   },
   "TLS": {
     "CertFile": "",
@@ -30,14 +20,5 @@
     "DenyListFile": "",
     "BlockByDefault": false,
     "TrustProxy": false
-  },
-  "TransitiveResources": {
-    "MaxWorkers": 10,
-    "MaxQueueSize": 20000,
-    "DefaultResponseSize": 1000,
-    "MaxResponseSize": 5000,
-    "Timeout": 600,
-    "MaxDepth": 10,
-    "DefaultDepth": 3
   }
 }
