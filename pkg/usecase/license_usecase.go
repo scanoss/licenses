@@ -3,9 +3,8 @@ package usecase
 import (
 	"context"
 	"errors"
-	"fmt"
+
 	"github.com/jmoiron/sqlx"
-	"github.com/scanoss/go-grpc-helper/pkg/grpc/database"
 	"github.com/scanoss/go-models/pkg/scanoss"
 	"github.com/scanoss/go-models/pkg/types"
 	common "github.com/scanoss/papi/api/commonv2"
@@ -46,33 +45,28 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licModel m
 }
 
 // GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, components []dto.ComponentRequestDTO) (pb.BasicLicenseResponse, *Error) {
+func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, sc *scanoss.Client, components []dto.ComponentRequestDTO) (pb.ComponentLicenseInfo, *Error) {
 
-	conn, err := models.NewConn(ctx, lu.db)
-	if err != nil {
-		return pb.BasicLicenseResponse{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
+	for _, c := range components {
+		_, _ = sc.Component.GetComponent(types.ComponentRequest{
+			Purl:        c.Purl,
+			Requirement: c.Requirement,
+		})
+
 	}
 
-	client := scanoss.New(ctx, s, conn, database.NewDBSelectContext(s, lu.db, conn, false))
-
-	comp, err := client.Component.GetComponent(types.ComponentRequest{
-		Purl:        components[0].Purl,
-		Requirement: components[0].Requirement,
-	})
-
-	fmt.Printf("purl: %s version: %s", comp.Purl, comp.Version)
-	return pb.BasicLicenseResponse{}, &Error{}
+	return pb.ComponentLicenseInfo{}, &Error{}
 }
 
 // GetDetails
-func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseResponse, *Error) {
+func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseDetails, *Error) {
 	license, err := lu.licModel.GetLicenseByID(ctx, s, lic.ID)
 	if err != nil {
-		return pb.LicenseResponse{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
+		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
 	if license.ID == 0 {
 		s.Warnf("License not found: %s", lic.ID)
-		return pb.LicenseResponse{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "License not found", Error: errors.New("license not found")}
+		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "License not found", Error: errors.New("license not found")}
 	}
 	s.Debugf("License: %v", license)
 
@@ -83,7 +77,7 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 
 	s.Debugf("OSADL: %v", osadl)
 
-	return pb.LicenseResponse{
+	return pb.LicenseDetails{
 		FullName: license.Name,
 		Spdx: &pb.SPDX{
 			FullName:      license.Name,
