@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	purlutils "github.com/scanoss/go-purl-helper/pkg"
 	"strings"
 
@@ -19,42 +20,51 @@ import (
 )
 
 type LicenseUseCase struct {
-	config     *myconfig.ServerConfig
-	licModel   models.LicenseModelInterface
-	osadlModel models.OSADLModelInterface
-	db         *sqlx.DB
+	config       *myconfig.ServerConfig
+	licenseModel models.LicenseModelInterface
+	osadlModel   models.OSADLModelInterface
+	db           *sqlx.DB
 }
 
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:     config,
-		licModel:   models.NewLicenseModel(db),
-		osadlModel: models.NewOSADLModel(db),
-		db:         db,
+		config:       config,
+		licenseModel: models.NewLicenseModel(db),
+		osadlModel:   models.NewOSADLModel(db),
+		db:           db,
 	}
 }
 
 type Option func(*LicenseUseCase)
 
 // WithLicenseModel option for dependency injection (mainly for testing)
-func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licModel models.LicenseModelInterface,
+func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseModel models.LicenseModelInterface,
 	osadlModel models.OSADLModelInterface) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:     config,
-		licModel:   licModel,
-		osadlModel: osadlModel,
+		config:       config,
+		licenseModel: licenseModel,
+		osadlModel:   osadlModel,
 	}
 }
 
 // GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, sc *scanoss.Client, components []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
-	var cli []*pb.ComponentLicenseInfo
+func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
+	s := ctxzap.Extract(ctx).Sugar()
+
+	var componentInfos []*pb.ComponentLicenseInfo
 
 	// Get a component version. It may be specified on the purl, on the requirement, or the request may not have specified a version at all.
-	for _, component := range components {
-		c, err := sc.Component.GetComponent(types.ComponentRequest{ //TODO: Maybe create a new method that returns a packageurl.PackageURL type?
-			Purl:        component.Purl,
-			Requirement: component.Requirement,
+	for _, cr := range crs {
+
+		// Prepare the response so the caller can track each component individually
+		componentInfo := &pb.ComponentLicenseInfo{
+			Purl:        cr.Purl,
+			Requirement: cr.Requirement,
+		}
+
+		c, err := sc.Component.GetComponent(ctx, types.ComponentRequest{
+			Purl:        cr.Purl,
+			Requirement: cr.Requirement,
 		})
 
 		if err != nil {
@@ -67,7 +77,7 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, 
 			s.Warnf("error parsing purl: %s. %w", c.Purl, err)
 		}
 
-		urls, err := sc.Models.AllUrls.GetURLsByPurlNameTypeVersion(p.Name, p.Type, c.Version)
+		urls, err := sc.Models.AllUrls.GetURLsByPurlNameTypeVersion(ctx, p.Name, p.Type, c.Version)
 		if err != nil {
 			s.Warnf("cannot get url from purl: %s. %w", c.Purl, err)
 			continue
@@ -82,19 +92,23 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, 
 		// Sometimes a purl@version have multiple urls (because multiple sources released)
 		// TODO: In order to solve this mapping issue we need to mine licenses based on purl@version
 		//		There is an intent to solve this mapping with the table ldb_component_licenses but there are so many missing licenses
-		lId := urls[0].LicenseID
+		licenseID := urls[0].LicenseID
 
-		l, err := sc.Models.Licenses.GetLicenseByID(lId)
+		license, err := sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
+		if err != nil {
+			s.Warnf("error getting license by ID: %d. %v", licenseID, err)
+			continue
+		}
 
-		// l.LicenseName: contains the license as declared from the project. There are scenarios where a project may declare multiple licenses.
+		// license.LicenseName: contains the license as declared from the project. There are scenarios where a project may declare multiple licenses.
 		//					usually is done with SPDX expressions, but some projects declare csv of licenses, or separated by slash
 
-		// l.LicenseID: This is the SPDX version of the license name, if the project have multiple licenses then, each is separated by a "/"
+		// license.LicenseID: This is the SPDX version of the license name, if the project have multiple licenses then, each is separated by a "/"
 
 		// There are others scenarios where the project does not declare a specific string license name. and instead have multiple licenses
 		// that apply based on the component compiled or component used. Those cases are not considerer here, like FFmpeg/FFmpeg
 
-		spdxIDs := strings.Split(l.LicenseID, "/")
+		spdxIDs := strings.Split(license.LicenseID, "/")
 
 		// Convert spdxIDs array to []*pb.LicenseInfo
 		var licenses []*pb.LicenseInfo
@@ -105,21 +119,19 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, s *zap.SugaredLogger, 
 			})
 		}
 
-		cli = append(cli, &pb.ComponentLicenseInfo{
-			Purl:      c.Purl,
-			Version:   c.Version,
-			Statement: l.LicenseName,
-			Licenses:  licenses,
-		})
+		componentInfo.Version = c.Version
+		componentInfo.Statement = license.LicenseName
+		componentInfo.Licenses = licenses
+		componentInfos = append(componentInfos, componentInfo)
 
 	}
 
-	return cli, nil
+	return componentInfos, nil
 }
 
 // GetDetails
 func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseDetails, *Error) {
-	license, err := lu.licModel.GetLicenseByID(ctx, s, lic.ID)
+	license, err := lu.licenseModel.GetLicenseByID(ctx, s, lic.ID)
 	if err != nil {
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
