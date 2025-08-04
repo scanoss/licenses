@@ -21,17 +21,17 @@ import (
 )
 
 type LicenseHandler struct {
-	config     *myconfig.ServerConfig
-	db         *sqlx.DB
-	licUseCase *usecase.LicenseUseCase
+	config         *myconfig.ServerConfig
+	db             *sqlx.DB
+	licenseUseCase *usecase.LicenseUseCase
 }
 
 // NewLicenseHandler creates a new instance of License handler.
 func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseHandler {
 	return &LicenseHandler{
-		config:     config,
-		db:         db,
-		licUseCase: usecase.NewLicenseUseCase(config, db),
+		config:         config,
+		db:             db,
+		licenseUseCase: usecase.NewLicenseUseCase(config, db),
 	}
 }
 
@@ -54,7 +54,7 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BatchLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 	q := gd.NewDBSelectContext(s, h.db, nil, false)
-	sc := scanoss.New(ctx, s, q, h.db)
+	sc := scanoss.New(q, h.db)
 
 	componentsDTO, err := middleware.Process()
 	if err != nil {
@@ -64,11 +64,11 @@ func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.
 		}, nil
 	}
 
-	l, _ := h.licUseCase.GetLicenses(ctx, s, sc, componentsDTO)
+	licenses, _ := h.licenseUseCase.GetLicenses(ctx, sc, componentsDTO)
 
 	return &pb.BatchLicenseResponse{
 		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
-		Components: l,
+		Components: licenses,
 	}, nil
 }
 
@@ -82,7 +82,7 @@ func (h *LicenseHandler) GetDetails(ctx context.Context, middleware middleware.M
 			License: &pb.LicenseDetails{},
 		}, err
 	}
-	licenseDetail, dErr := h.licUseCase.GetDetails(ctx, s, licenseDTO)
+	licenseDetail, dErr := h.licenseUseCase.GetDetails(ctx, s, licenseDTO)
 
 	if dErr != nil {
 		s.Errorf("Error getting license details: %v", dErr)
