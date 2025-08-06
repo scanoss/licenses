@@ -51,7 +51,7 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseMod
 func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
-	var componentInfos []*pb.ComponentLicenseInfo
+	var clir []*pb.ComponentLicenseInfo
 
 	// Get a component version. It may be specified on the purl, on the requirement, or the request may not have specified a version at all.
 	for _, cr := range crs {
@@ -61,6 +61,7 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 			Purl:        cr.Purl,
 			Requirement: cr.Requirement,
 		}
+		clir = append(clir, componentInfo)
 
 		c, err := sc.Component.GetComponent(ctx, types.ComponentRequest{
 			Purl:        cr.Purl,
@@ -78,35 +79,40 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 		}
 
 		urls, err := sc.Models.AllUrls.GetURLsByPurlNameTypeVersion(ctx, p.Name, p.Type, c.Version)
-		if err != nil {
-			s.Warnf("cannot get url from purl: %s. %w", c.Purl, err)
-			continue
-		}
+		var licenseID int32
 
-		if len(urls) == 0 {
-			s.Warnf("no license found for purl=%s - version=%s. %w", c.Purl, c.Version)
-			continue
-		}
+		if err != nil || len(urls) == 0 {
+			s.Warnf("AllUrls query failed for purl=%s version=%s - trying fallback (error: %v)", c.Purl, c.Version, err)
 
-		// Asume that all URLs have same license. One URL is one .tar.gz on a Github Release for example
-		// Sometimes a purl@version have multiple urls (because multiple sources released)
-		// TODO: In order to solve this mapping issue we need to mine licenses based on purl@version
-		//		There is an intent to solve this mapping with the table ldb_component_licenses but there are so many missing licenses
-		licenseID := urls[0].LicenseID
+			// Fallback: try to get license from LDB component licenses table
+			s.Debugf("Trying fallback with LDB component licenses for purl: %s", c.Purl)
+
+			lclm := models.NewLDBComponentLicensesModel(lu.db)
+			purlMD5 := lclm.CalculateMD5FromPurlVersion(c.Purl, c.Version)
+			s.Debugf("Calculated PURL MD5: %s for purl=%s version=%s", purlMD5, c.Purl, c.Version)
+			componentLicenses, ldbErr := lclm.GetLicensesByPurlMD5(ctx, purlMD5)
+
+			if ldbErr != nil {
+				s.Warnf("fallback failed - cannot get license from LDB component licenses: %v", ldbErr)
+				continue
+			}
+
+			if len(componentLicenses) == 0 {
+				s.Warnf("no license found in fallback for purl=%s - version=%s", c.Purl, c.Version)
+				continue
+			}
+
+			licenseID = componentLicenses[0].LicenseID
+			s.Debugf("Found license via fallback: licenseID=%d for purl=%s", licenseID, c.Purl)
+		} else {
+			licenseID = urls[0].LicenseID
+		}
 
 		license, err := sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
 		if err != nil {
 			s.Warnf("error getting license by ID: %d. %v", licenseID, err)
 			continue
 		}
-
-		// license.LicenseName: contains the license as declared from the project. There are scenarios where a project may declare multiple licenses.
-		//					usually is done with SPDX expressions, but some projects declare csv of licenses, or separated by slash
-
-		// license.LicenseID: This is the SPDX version of the license name, if the project have multiple licenses then, each is separated by a "/"
-
-		// There are others scenarios where the project does not declare a specific string license name. and instead have multiple licenses
-		// that apply based on the component compiled or component used. Those cases are not considerer here, like FFmpeg/FFmpeg
 
 		spdxIDs := strings.Split(license.LicenseID, "/")
 
@@ -122,11 +128,10 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 		componentInfo.Version = c.Version
 		componentInfo.Statement = license.LicenseName
 		componentInfo.Licenses = licenses
-		componentInfos = append(componentInfos, componentInfo)
 
 	}
 
-	return componentInfos, nil
+	return clir, nil
 }
 
 // GetDetails

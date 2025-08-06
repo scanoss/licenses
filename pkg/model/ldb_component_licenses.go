@@ -18,6 +18,7 @@ package models
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -52,12 +53,12 @@ type AllURL struct {
 
 */
 
-// NewLDBComponentLicensesModel create a new instance of the License Model.
+// NewLDBComponentLicensesModel create a new instance of the NewLDBComponentLicensesModel Model.
 func NewLDBComponentLicensesModel(db *sqlx.DB) *LDBComponentLicensesModel {
 	return &LDBComponentLicensesModel{db: db}
 }
 
-func (ldbcl *LDBComponentLicensesModel) GetLicensesByPurlMD5(ctx context.Context, purlMD5 string) ([]LDBComponentLicense, error) {
+func (lcl *LDBComponentLicensesModel) GetLicensesByPurlMD5(ctx context.Context, purlMD5 string) ([]LDBComponentLicense, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	if len(purlMD5) == 0 {
@@ -71,7 +72,7 @@ func (ldbcl *LDBComponentLicensesModel) GetLicensesByPurlMD5(ctx context.Context
 		" WHERE purl_md5 = $1"
 
 	var componentLicenses []LDBComponentLicense
-	err := ldbcl.db.SelectContext(ctx, &componentLicenses, query, purlMD5)
+	err := lcl.db.SelectContext(ctx, &componentLicenses, query, purlMD5)
 	if err != nil {
 		s.Errorf("Failed to query ldb_component_licenses table for %v: %v", purlMD5, err)
 		return nil, fmt.Errorf("failed to query the ldb_component_licenses table: %v", err)
@@ -79,4 +80,11 @@ func (ldbcl *LDBComponentLicensesModel) GetLicensesByPurlMD5(ctx context.Context
 
 	s.Debugf("Found %v results for %v", len(componentLicenses), purlMD5)
 	return componentLicenses, nil
+}
+
+// CalculateMD5FromPurlVersion generates MD5 hash from component and version
+func (lcl *LDBComponentLicensesModel) CalculateMD5FromPurlVersion(purl, version string) string {
+	purlString := fmt.Sprintf("%s@%s", purl, version)
+	hash := md5.Sum([]byte(purlString))
+	return fmt.Sprintf("%x", hash)
 }
