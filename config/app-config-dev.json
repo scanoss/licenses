@@ -1,14 +1,14 @@
 {
   "App": {
     "Name": "License Service",
-    "Debug": false,
+    "Debug": true,
     "Mode":  "prod",
     "GRPCPort": "50059",
     "RESTPort": "40059"
   },
   "Database": {
     "Driver": "sqlite",
-    "Dsn": "/data/sqlite/licenses/base.sqlite?cache=shared&mode=memory",
+    "Dsn": "/data/sqlite/licenses/licenses.sqlite?cache=shared&mode=memory",
     "Trace": false
   },
   "TLS": {
