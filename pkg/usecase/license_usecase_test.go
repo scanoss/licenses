@@ -26,9 +26,9 @@ type MockOSADLModel struct {
 	mock.Mock
 }
 
-func (m *MockLicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, id string) (models.License, error) {
+func (m *MockLicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, id string) (models.LicenseDetail, error) {
 	args := m.Called(id)
-	return args.Get(0).(models.License), args.Error(1)
+	return args.Get(0).(models.LicenseDetail), args.Error(1)
 }
 
 func (m *MockOSADLModel) GetOSADLByLicenseId(ctx context.Context, s *zap.SugaredLogger, id string) (models.OSADL, error) {
@@ -49,20 +49,20 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		licModel       models.LicenseModelInterface
+		licModel       models.LicenseDetailModelInterface
 		osadlModel     models.OSADLModelInterface
 		licenseRequest dto.LicenseRequestDTO
-		expectedResult pb.LicenseResponse
+		expectedResult pb.LicenseDetails
 		expectedError  *Error
 		expectErr      bool
 	}{
 		{
 			name: "successful license retrieval",
-			licModel: func() models.LicenseModelInterface {
+			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
-				mockModel.On("GetLicenseByID", "MIT").Return(models.License{
+				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{
 					ID:                    1,
-					Name:                  "MIT License",
+					Name:                  "MIT LicenseDetail",
 					LicenseId:             "MIT",
 					DetailsUrl:            "https://spdx.org/licenses/MIT.html",
 					Reference:             "https://opensource.org/licenses/MIT",
@@ -89,10 +89,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licenseRequest: dto.LicenseRequestDTO{
 				ID: "MIT",
 			},
-			expectedResult: pb.LicenseResponse{
-				FullName: "MIT License",
+			expectedResult: pb.LicenseDetails{
+				FullName: "MIT LicenseDetail",
 				Spdx: &pb.SPDX{
-					FullName:      "MIT License",
+					FullName:      "MIT LicenseDetail",
 					Id:            "MIT",
 					DetailsUrl:    "https://spdx.org/licenses/MIT.html",
 					ReferenceUrl:  "https://opensource.org/licenses/MIT",
@@ -114,9 +114,9 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 		},
 		{
 			name: "license not found",
-			licModel: func() models.LicenseModelInterface {
+			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
-				mockModel.On("GetLicenseByID", "NONEXISTENT").Return(models.License{}, nil)
+				mockModel.On("GetLicenseByID", "NONEXISTENT").Return(models.LicenseDetail{}, nil)
 				return mockModel
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
@@ -127,20 +127,20 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licenseRequest: dto.LicenseRequestDTO{
 				ID: "NONEXISTENT",
 			},
-			expectedResult: pb.LicenseResponse{},
+			expectedResult: pb.LicenseDetails{},
 			expectedError: &Error{
 				Status:  common.StatusCode_SUCCEEDED_WITH_WARNINGS,
 				Code:    rest.HTTP_CODE_404,
-				Message: "License not found",
+				Message: "LicenseDetail not found",
 				Error:   errors.New("license not found"),
 			},
 			expectErr: true,
 		},
 		{
 			name: "license found but with ID 0 (empty result)",
-			licModel: func() models.LicenseModelInterface {
+			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
-				mockModel.On("GetLicenseByID", "EMPTY").Return(models.License{}, nil)
+				mockModel.On("GetLicenseByID", "EMPTY").Return(models.LicenseDetail{}, nil)
 				return mockModel
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
@@ -151,22 +151,22 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licenseRequest: dto.LicenseRequestDTO{
 				ID: "EMPTY",
 			},
-			expectedResult: pb.LicenseResponse{},
+			expectedResult: pb.LicenseDetails{},
 			expectedError: &Error{
 				Status:  common.StatusCode_SUCCEEDED_WITH_WARNINGS,
 				Code:    rest.HTTP_CODE_404,
-				Message: "License not found",
+				Message: "LicenseDetail not found",
 				Error:   errors.New("license not found"),
 			},
 			expectErr: true,
 		},
 		{
 			name: "case insensitive license ID",
-			licModel: func() models.LicenseModelInterface {
+			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
-				mockModel.On("GetLicenseByID", "mit").Return(models.License{
+				mockModel.On("GetLicenseByID", "mit").Return(models.LicenseDetail{
 					ID:                    1,
-					Name:                  "MIT License",
+					Name:                  "MIT LicenseDetail",
 					LicenseId:             "MIT",
 					DetailsUrl:            "https://spdx.org/licenses/MIT.html",
 					Reference:             "https://opensource.org/licenses/MIT",
@@ -193,10 +193,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licenseRequest: dto.LicenseRequestDTO{
 				ID: "mit",
 			},
-			expectedResult: pb.LicenseResponse{
-				FullName: "MIT License",
+			expectedResult: pb.LicenseDetails{
+				FullName: "MIT LicenseDetail",
 				Spdx: &pb.SPDX{
-					FullName:      "MIT License",
+					FullName:      "MIT LicenseDetail",
 					Id:            "MIT",
 					DetailsUrl:    "https://spdx.org/licenses/MIT.html",
 					ReferenceUrl:  "https://opensource.org/licenses/MIT",
@@ -218,9 +218,9 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 		},
 		{
 			name: "error license model",
-			licModel: func() models.LicenseModelInterface {
+			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
-				mockModel.On("GetLicenseByID", "MIT").Return(models.License{}, errors.New("error connecting to db"))
+				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{}, errors.New("error connecting to db"))
 				return mockModel
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
@@ -231,7 +231,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licenseRequest: dto.LicenseRequestDTO{
 				ID: "MIT",
 			},
-			expectedResult: pb.LicenseResponse{}, // Should be empty on error
+			expectedResult: pb.LicenseDetails{}, // Should be empty on error
 			expectedError: &Error{
 				Status:  common.StatusCode_FAILED,
 				Code:    rest.HTTP_CODE_500,
@@ -242,11 +242,11 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 		},
 		{
 			name: "error osadl model",
-			licModel: func() models.LicenseModelInterface {
+			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
-				mockModel.On("GetLicenseByID", "MIT").Return(models.License{
+				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{
 					ID:                    1,
-					Name:                  "MIT License",
+					Name:                  "MIT LicenseDetail",
 					LicenseId:             "MIT",
 					DetailsUrl:            "https://spdx.org/licenses/MIT.html",
 					Reference:             "https://opensource.org/licenses/MIT",
@@ -265,7 +265,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licenseRequest: dto.LicenseRequestDTO{
 				ID: "MIT",
 			},
-			expectedResult: pb.LicenseResponse{}, // Should be empty on error
+			expectedResult: pb.LicenseDetails{}, // Should be empty on error
 			expectedError:  &Error{},
 			expectErr:      false,
 		},
