@@ -50,7 +50,7 @@ func loadSQLData(db *sqlx.DB, ctx context.Context, conn *sqlx.Conn, filename str
 
 // LoadTestSQLData loads all the required test SQL files.
 func LoadTestSQLData(db *sqlx.DB, ctx context.Context, conn *sqlx.Conn) error {
-	files := []string{"../model/tests/licenses.sql"}
+	files := []string{"../model/tests/licenses.sql", "../model/tests/purl_licenses.sql"}
 	return loadTestSQLDataFiles(db, ctx, conn, files)
 }
 

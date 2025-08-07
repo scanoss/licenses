@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	purlutils "github.com/scanoss/go-purl-helper/pkg"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -20,30 +19,32 @@ import (
 )
 
 type LicenseUseCase struct {
-	config       *myconfig.ServerConfig
-	licenseModel models.LicenseDetailModelInterface
-	osadlModel   models.OSADLModelInterface
-	db           *sqlx.DB
+	config             *myconfig.ServerConfig
+	purlLicenseModel   *models.PurlLicensesModel
+	licenseDetailModel models.LicenseDetailModelInterface
+	osadlModel         models.OSADLModelInterface
+	db                 *sqlx.DB
 }
 
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
+	//TODO: refactor scanoss.NewClient to receive only a *sqlx.DB and extract the logger form ctx in all queries.
+	// Check: https://scanoss.atlassian.net/browse/SP-3015
 	return &LicenseUseCase{
-		config:       config,
-		licenseModel: models.NewLicenseDetailModel(db),
-		osadlModel:   models.NewOSADLModel(db),
-		db:           db,
+		config:             config,
+		licenseDetailModel: models.NewLicenseDetailModel(db),
+		purlLicenseModel:   models.NewPurlLicensesModel(db),
+		osadlModel:         models.NewOSADLModel(db),
+		db:                 db,
 	}
 }
-
-type Option func(*LicenseUseCase)
 
 // WithLicenseModel option for dependency injection (mainly for testing)
 func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseModel models.LicenseDetailModelInterface,
 	osadlModel models.OSADLModelInterface) *LicenseUseCase {
 	return &LicenseUseCase{
-		config:       config,
-		licenseModel: licenseModel,
-		osadlModel:   osadlModel,
+		config:             config,
+		licenseDetailModel: licenseModel,
+		osadlModel:         osadlModel,
 	}
 }
 
@@ -72,41 +73,24 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 			s.Warnf("error when resolving component version. %w", err)
 			continue
 		}
+		//
+		//p, err := purlutils.PurlFromString(c.Purl)
+		//if err != nil {
+		//	s.Warnf("error parsing purl: %s. %w", c.Purl, err)
+		//}
 
-		p, err := purlutils.PurlFromString(c.Purl)
+		pl, err := lu.purlLicenseModel.GetLicensesByPurl(ctx, c.Purl, c.Version)
 		if err != nil {
-			s.Warnf("error parsing purl: %s. %w", c.Purl, err)
+			s.Warnf("error when querying purlLicense model for purl=%s version=%s. %w", c.Purl, c.Version, err)
+			continue
 		}
 
-		urls, err := sc.Models.AllUrls.GetURLsByPurlNameTypeVersion(ctx, p.Name, p.Type, c.Version)
-		var licenseID int32
-
-		if err != nil || len(urls) == 0 {
-			s.Warnf("AllUrls query failed for purl=%s version=%s - trying fallback (error: %v)", c.Purl, c.Version, err)
-
-			// Fallback: try to get license from LDB component licenses table
-			s.Debugf("Trying fallback with LDB component licenses for purl: %s", c.Purl)
-
-			lclm := models.NewLDBComponentLicensesModel(lu.db)
-			purlMD5 := lclm.CalculateMD5FromPurlVersion(c.Purl, c.Version)
-			s.Debugf("Calculated PURL MD5: %s for purl=%s version=%s", purlMD5, c.Purl, c.Version)
-			componentLicenses, ldbErr := lclm.GetLicensesByPurlMD5(ctx, purlMD5)
-
-			if ldbErr != nil {
-				s.Warnf("fallback failed - cannot get license from LDB component licenses: %v", ldbErr)
-				continue
-			}
-
-			if len(componentLicenses) == 0 {
-				s.Warnf("no license found in fallback for purl=%s - version=%s", c.Purl, c.Version)
-				continue
-			}
-
-			licenseID = componentLicenses[0].LicenseID
-			s.Debugf("Found license via fallback: licenseID=%d for purl=%s", licenseID, c.Purl)
-		} else {
-			licenseID = urls[0].LicenseID
+		if len(pl) == 0 {
+			s.Warnf("no license found for purl=%s version=%s. %w", c.Purl, c.Version, err)
+			continue
 		}
+
+		licenseID := pl[0].LicenseID //TODO apply ranking algorithm based on source and eliminate noise from scancode
 
 		license, err := sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
 		if err != nil {
@@ -136,7 +120,7 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 
 // GetDetails
 func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseDetails, *Error) {
-	license, err := lu.licenseModel.GetLicenseByID(ctx, s, lic.ID)
+	license, err := lu.licenseDetailModel.GetLicenseByID(ctx, s, lic.ID)
 	if err != nil {
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
