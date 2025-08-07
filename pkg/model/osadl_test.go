@@ -52,7 +52,7 @@ func TestGetOSDALByLicenseId(t *testing.T) {
 					t.Errorf("osadlModel.GetOSADLByLicenseId() error = %v, wantErr %v", err, test.expectErr)
 				}
 			}
-			fmt.Printf("License: %#v\n", license)
+			fmt.Printf("LicenseDetail: %#v\n", license)
 		})
 	}
 }

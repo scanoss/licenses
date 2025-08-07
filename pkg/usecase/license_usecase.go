@@ -21,7 +21,7 @@ import (
 
 type LicenseUseCase struct {
 	config       *myconfig.ServerConfig
-	licenseModel models.LicenseModelInterface
+	licenseModel models.LicenseDetailModelInterface
 	osadlModel   models.OSADLModelInterface
 	db           *sqlx.DB
 }
@@ -29,7 +29,7 @@ type LicenseUseCase struct {
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
 	return &LicenseUseCase{
 		config:       config,
-		licenseModel: models.NewLicenseModel(db),
+		licenseModel: models.NewLicenseDetailModel(db),
 		osadlModel:   models.NewOSADLModel(db),
 		db:           db,
 	}
@@ -38,7 +38,7 @@ func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCa
 type Option func(*LicenseUseCase)
 
 // WithLicenseModel option for dependency injection (mainly for testing)
-func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseModel models.LicenseModelInterface,
+func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseModel models.LicenseDetailModelInterface,
 	osadlModel models.OSADLModelInterface) *LicenseUseCase {
 	return &LicenseUseCase{
 		config:       config,
@@ -141,10 +141,10 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
 	if license.ID == 0 {
-		s.Warnf("License not found: %s", lic.ID)
-		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "License not found", Error: errors.New("license not found")}
+		s.Warnf("LicenseDetail not found: %s", lic.ID)
+		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "LicenseDetail not found", Error: errors.New("license not found")}
 	}
-	s.Debugf("License: %v", license)
+	s.Debugf("LicenseDetail: %v", license)
 
 	osadl, err := lu.osadlModel.GetOSADLByLicenseId(ctx, s, license.LicenseId)
 	if err != nil {

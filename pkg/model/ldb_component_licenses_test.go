@@ -1,16 +1,16 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-LicenseDetail-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018-2023 SCANOSS.COM
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
+ * it under the terms of the GNU General Public LicenseDetail as published by
+ * the Free Software Foundation, either version 2 of the LicenseDetail, or
  * (at your option) any later version.
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
+ * GNU General Public LicenseDetail for more details.
+ * You should have received a copy of the GNU General Public LicenseDetail
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -117,9 +117,9 @@ func TestGetLicensesByPurlMD5_Success(t *testing.T) {
 					t.Errorf("GetLicensesByPurlMD5() LicenseID should not be 0")
 				}
 
-				// For orphaned licenses (LEFT JOIN with NULL), License.Valid will be false
+				// For orphaned licenses (LEFT JOIN with NULL), LicenseDetail.Valid will be false
 				if test.purlMD5 != "orphan456license" && (!license.License.Valid || license.License.String == "") {
-					t.Errorf("GetLicensesByPurlMD5() License name should not be empty for valid licenses")
+					t.Errorf("GetLicensesByPurlMD5() LicenseDetail name should not be empty for valid licenses")
 				}
 
 				if test.expectedSource != "" && license.Source != test.expectedSource {

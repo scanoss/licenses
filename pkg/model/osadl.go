@@ -87,7 +87,7 @@ func (m *OSADLModel) GetOSADLByLicenseId(ctx context.Context, s *zap.SugaredLogg
 	}
 	licenseIDToUpper := strings.ToUpper(licenseId)
 	var osadl OSADL
-	s.Debugf("License ID: %v", licenseIDToUpper)
+	s.Debugf("LicenseDetail ID: %v", licenseIDToUpper)
 	err = conn.QueryRowxContext(ctx,
 		"SELECT * FROM osadl WHERE UPPER(license_id) = $1", licenseIDToUpper).StructScan(&osadl)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {

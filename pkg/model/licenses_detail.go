@@ -1,16 +1,16 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-LicenseDetail-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018-2022 SCANOSS.COM
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
+ * it under the terms of the GNU General Public LicenseDetail as published by
+ * the Free Software Foundation, either version 2 of the LicenseDetail, or
  * (at your option) any later version.
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
+ * GNU General Public LicenseDetail for more details.
+ * You should have received a copy of the GNU General Public LicenseDetail
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -30,8 +30,8 @@ import (
 	"strings"
 )
 
-type LicenseModelInterface interface {
-	GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, id string) (License, error)
+type LicenseDetailModelInterface interface {
+	GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, id string) (LicenseDetail, error)
 }
 
 type LicenseModel struct {
@@ -80,7 +80,7 @@ func (s SeeAlso) Value() (driver.Value, error) {
 	return string(data), nil
 }
 
-type License struct {
+type LicenseDetail struct {
 	ID                    int32   `json:"id" db:"id"`
 	Reference             string  `json:"reference" db:"reference"`
 	IsDeprecatedLicenseId bool    `json:"isDeprecatedLicenseId" db:"is_deprecated_license_id"`
@@ -93,24 +93,24 @@ type License struct {
 	IsFsfLibre            bool    `json:"isFsfLibre" db:"is_fsf_libre"`
 }
 
-// NewLicenseModel create a new instance of the License Model.
-func NewLicenseModel(db *sqlx.DB) *LicenseModel {
+// NewLicenseDetailModel create a new instance of the LicenseDetail Model.
+func NewLicenseDetailModel(db *sqlx.DB) *LicenseModel {
 	return &LicenseModel{db: db}
 }
 
 // GetLicenseByID retrieves license data by the given row ID.
-func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, licenseId string) (License, error) {
+func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, licenseId string) (LicenseDetail, error) {
 	conn, err := NewConn(ctx, m.db)
 	if err != nil {
-		return License{}, err
+		return LicenseDetail{}, err
 	}
 	licenseIDToUpper := strings.ToUpper(licenseId)
-	var license License
+	var license LicenseDetail
 	err = conn.QueryRowxContext(ctx,
 		"SELECT * FROM licenses WHERE UPPER(license_id) = $1", licenseIDToUpper).StructScan(&license)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.Errorf("Error: Failed to query license table for %v: %#v", licenseIDToUpper, err)
-		return License{}, fmt.Errorf("failed to query the license table: %v", err)
+		return LicenseDetail{}, fmt.Errorf("failed to query the license table: %v", err)
 	}
 	return license, nil
 }

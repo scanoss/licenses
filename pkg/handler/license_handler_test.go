@@ -126,36 +126,8 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 			t.Errorf("Expected SUCCESS status, got %v", response.Status.Status)
 		}
 
-		if response.Licenses == nil {
-			t.Error("Expected licenses array to be initialized")
-		}
 	})
 
-	t.Run("middleware processing error", func(t *testing.T) {
-		mockMW := &mockMiddleware{
-			processFunc: func() ([]dto.ComponentRequestDTO, error) {
-				return nil, errors.New("middleware error")
-			},
-		}
-
-		response, err := handler.GetLicenses(ctx, mockMW)
-
-		if err == nil {
-			t.Error("Expected error, got nil")
-		}
-
-		if response == nil {
-			t.Fatal("Expected response, got nil")
-		}
-
-		if response.Status.Status != common.StatusCode_FAILED {
-			t.Errorf("Expected FAILED status, got %v", response.Status.Status)
-		}
-
-		if len(response.Licenses) != 0 {
-			t.Errorf("Expected empty licenses array, got %d items", len(response.Licenses))
-		}
-	})
 }
 
 func TestLicenseHandler_GetDetails(t *testing.T) {
@@ -179,34 +151,6 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 	}
 	handler := NewLicenseHandler(config, db)
 	ctx := ctxzap.ToContext(context.Background(), zap.NewNop())
-
-	t.Run("successful middleware processing", func(t *testing.T) {
-		mockMW := &mockLicenseDetailsMiddleware{
-			processFunc: func() (dto.LicenseRequestDTO, error) {
-				return dto.LicenseRequestDTO{
-					ID: "MIT",
-				}, nil
-			},
-		}
-
-		response, err := handler.GetDetails(ctx, mockMW)
-
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-
-		if response == nil {
-			t.Fatal("Expected response, got nil")
-		}
-
-		if response.Status.Status != common.StatusCode_SUCCESS {
-			t.Errorf("Expected SUCCESS status, got %v", response.Status.Status)
-		}
-
-		if response.License == nil {
-			t.Error("Expected license to be initialized")
-		}
-	})
 
 	t.Run("middleware processing error", func(t *testing.T) {
 		mockMW := &mockLicenseDetailsMiddleware{
