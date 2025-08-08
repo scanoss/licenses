@@ -33,8 +33,10 @@ func (m *ComponentBatchMiddleware[TOutput]) groupComponentsByPurl(c []dto.Compon
 		splitPurl := strings.Split(comp.Purl, "@")
 		if len(splitPurl) >= 2 {
 			comp = dto.ComponentRequestDTO{
-				Purl:        splitPurl[0],
-				Requirement: splitPurl[1],
+				Purl:         splitPurl[0], // Split PURL for processing
+				Requirement:  splitPurl[1], // Version from @version part
+				OriginalPurl: comp.Purl,    // Preserve original format
+				WasSplit:     true,         // Flag this as split from purl@version
 			}
 		}
 		componentMap[key] = comp
