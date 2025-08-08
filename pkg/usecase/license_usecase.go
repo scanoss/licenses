@@ -95,9 +95,9 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 		}
 
 		// Parse license expression using SPDX expression parser
-		spdxIDs, err := license.ParseLicenseExpression(licenseRecord.LicenseID)
+		spdxIDs, err := license.ParseLicenseExpression(licenseRecord.SPDX)
 		if err != nil {
-			s.Warnf("error parsing license expression: %s. %v", licenseRecord.LicenseID, err)
+			s.Warnf("error parsing license expression: %s. %v", licenseRecord.SPDX, err)
 			continue
 		}
 
