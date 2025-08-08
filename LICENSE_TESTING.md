@@ -1,10 +1,5 @@
 # License Service Testing
 
-## Service Endpoint
-```
-curl -s -X POST http://168.119.136.95:40059/api/v2/licenses/purl
-```
-
 ## Test Components Matrix
 
 ### Dual-Licensed Components
