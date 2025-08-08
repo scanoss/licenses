@@ -57,9 +57,21 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 	for _, cr := range crs {
 
 		// Prepare the response so the caller can track each component individually
+		// Determine which PURL to use, original format if it was split from purl@version
+		purl := cr.Purl
+		if cr.OriginalPurl != "" {
+			purl = cr.OriginalPurl
+		}
+
+		// Determine requirement, empty for split PURLs
+		requirement := cr.Requirement
+		if cr.WasSplit {
+			requirement = ""
+		}
+
 		componentInfo := &pb.ComponentLicenseInfo{
-			Purl:        cr.Purl,
-			Requirement: cr.Requirement,
+			Purl:        purl,
+			Requirement: requirement,
 		}
 		clir = append(clir, componentInfo)
 
