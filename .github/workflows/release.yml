@@ -37,7 +37,7 @@ jobs:
         with:
           draft: true
           files: |
-            target/scanoss-dependencies-api-linux-amd64
-            target/scanoss-dependencies-api-linux-arm64
-            scanoss-dependencies-api_linux-amd64_${{ github.ref_name }}-1.tgz
-            scanoss-dependencies-api_linux-arm64_${{ github.ref_name }}-1.tgz
+            target/scanoss-license-api-linux-amd64
+            target/scanoss-license-api-linux-arm64
+            scanoss-license-api_linux-amd64_${{ github.ref_name }}-1.tgz
+            scanoss-license-api_linux-arm64_${{ github.ref_name }}-1.tgz

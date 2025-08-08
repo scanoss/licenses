@@ -26,7 +26,7 @@ clean_testcache:  ## Expire all Go test caches
 
 version:  ## Produce dependency version text file
 	@echo "Writing version file..."
-	echo $(VERSION) > pkg/cmd/version.txt
+	echo $(VERSION) > pkg/app/version.txt
 
 unit_test:  ## Run all unit tests in the pkg folder
 	@echo "Running unit test framework..."
@@ -66,24 +66,24 @@ ghcr_all: ghcr_build ghcr_tag ghcr_push  ## Execute all GitHub Package container
 
 build_amd: version  ## Build an AMD 64 binary
 	@echo "Building AMD binary $(VERSION)..."
-	go generate ./pkg/cmd/server.go
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./target/scanoss-dependencies-api-linux-amd64 ./cmd/server
+	go generate ./pkg/app/app.go
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./target/scanoss-license-api-linux-amd64 ./cmd/license-api
 
 build_arm: version  ## Build an ARM 64 binary
 	@echo "Building ARM binary $(VERSION)..."
-	go generate ./pkg/cmd/server.go
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./target/scanoss-dependencies-api-linux-arm64 ./cmd/server
+	go generate ./pkg/app/app.go
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./target/scanoss-license-api-linux-arm64 ./cmd/license-api
 
 package: package_amd  ## Build & Package an AMD 64 binary
 
 package_amd: version  ## Build & Package an AMD 64 binary
 	@echo "Building AMD binary $(VERSION) and placing into scripts..."
 	go generate ./pkg/cmd/server.go
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-dependencies-api ./cmd/server
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-license-api ./cmd/server
 	bash ./package-scripts.sh linux-amd64 $(VERSION)
 
 package_arm: version  ## Build & Package an ARM 64 binary
 	@echo "Building ARM binary $(VERSION) and placing into scripts..."
 	go generate ./pkg/cmd/server.go
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-dependencies-api ./cmd/server
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-license-api ./cmd/server
 	bash ./package-scripts.sh linux-arm64 $(VERSION)
