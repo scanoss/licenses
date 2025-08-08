@@ -42,7 +42,7 @@ func TestPurlLicensesModel_GetLicensesByPurl(t *testing.T) {
 	model := NewPurlLicensesModel(db)
 
 	t.Run("GetExistingPurlLicenses", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurl(ctx, "pkg:npm/express", "4.18.2")
+		licenses, err := model.GetLicensesByPurlVersion(ctx, "pkg:npm/express", "4.18.2")
 		if err != nil {
 			t.Fatalf("Expected no error, got: %v", err)
 		}
@@ -55,7 +55,7 @@ func TestPurlLicensesModel_GetLicensesByPurl(t *testing.T) {
 	})
 
 	t.Run("GetNonExistentPurlLicenses", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurl(ctx, "pkg:npm/nonexistent", "1.0.0")
+		licenses, err := model.GetLicensesByPurlVersion(ctx, "pkg:npm/nonexistent", "1.0.0")
 		if err != nil {
 			t.Fatalf("Expected no error, got: %v", err)
 		}
@@ -65,14 +65,14 @@ func TestPurlLicensesModel_GetLicensesByPurl(t *testing.T) {
 	})
 
 	t.Run("GetLicensesWithEmptyPurl", func(t *testing.T) {
-		_, err := model.GetLicensesByPurl(ctx, "", "1.0.0")
+		_, err := model.GetLicensesByPurlVersion(ctx, "", "1.0.0")
 		if err == nil {
 			t.Error("Expected error for empty purl, got nil")
 		}
 	})
 
 	t.Run("GetLicensesWithEmptyVersion", func(t *testing.T) {
-		_, err := model.GetLicensesByPurl(ctx, "pkg:npm/test", "")
+		_, err := model.GetLicensesByPurlVersion(ctx, "pkg:npm/test", "")
 		if err == nil {
 			t.Error("Expected error for empty version, got nil")
 		}
