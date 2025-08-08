@@ -50,6 +50,26 @@ func (m *PurlLicensesModel) GetLicensesByPurl(ctx context.Context, purl, version
 
 	var purlLicenses []PurlLicense
 	err := m.db.SelectContext(ctx, &purlLicenses,
+		"SELECT purl, version, date, source_id, license_id FROM purl_licenses WHERE purl = $1 AND version IS NULL",
+		purl, version)
+	if err != nil {
+		s.Errorf("Failed to query purl_licenses table for purl %v, version %v: %v", purl, version, err)
+		return nil, fmt.Errorf("failed to query the purl_licenses table: %v", err)
+	}
+
+	s.Debugf("Found %v results for purl %v, version %v", len(purlLicenses), purl, version)
+	return purlLicenses, nil
+}
+
+func (m *PurlLicensesModel) GetLicensesByPurlVersion(ctx context.Context, purl, version string) ([]PurlLicense, error) {
+	s := ctxzap.Extract(ctx).Sugar()
+	if len(purl) == 0 || len(version) == 0 {
+		s.Error("Please specify a valid purl and version to query")
+		return nil, errors.New("please specify a valid purl and version to query")
+	}
+
+	var purlLicenses []PurlLicense
+	err := m.db.SelectContext(ctx, &purlLicenses,
 		"SELECT purl, version, date, source_id, license_id FROM purl_licenses WHERE purl = $1 AND version = $2",
 		purl, version)
 	if err != nil {

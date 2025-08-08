@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"strings"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/go-models/pkg/scanoss"
 	"github.com/scanoss/go-models/pkg/types"
@@ -14,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
+	"scanoss.com/licenses/pkg/license"
 	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
 )
@@ -73,13 +72,8 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 			s.Warnf("error when resolving component version. %w", err)
 			continue
 		}
-		//
-		//p, err := purlutils.PurlFromString(c.Purl)
-		//if err != nil {
-		//	s.Warnf("error parsing purl: %s. %w", c.Purl, err)
-		//}
 
-		pl, err := lu.purlLicenseModel.GetLicensesByPurl(ctx, c.Purl, c.Version)
+		pl, err := lu.purlLicenseModel.GetLicensesByPurlVersion(ctx, c.Purl, c.Version)
 		if err != nil {
 			s.Warnf("error when querying purlLicense model for purl=%s version=%s. %w", c.Purl, c.Version, err)
 			continue
@@ -90,27 +84,38 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 			continue
 		}
 
-		licenseID := pl[0].LicenseID //TODO apply ranking algorithm based on source and eliminate noise from scancode
+		// Apply source-based priority selection (SPDX tags > attribution files > scancode)
+		// TODO: Apply a holistic approach based on all the results.
+		bl := license.SelectBestLicense(pl)
 
-		license, err := sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
+		licenseRecord, err := sc.Models.Licenses.GetLicenseByID(ctx, bl.LicenseID)
 		if err != nil {
-			s.Warnf("error getting license by ID: %d. %v", licenseID, err)
+			s.Warnf("error getting license by ID: %d. %v", bl.LicenseID, err)
 			continue
 		}
 
-		spdxIDs := strings.Split(license.LicenseID, "/")
+		// Parse license expression using SPDX expression parser
+		spdxIDs, err := license.ParseLicenseExpression(licenseRecord.LicenseID)
+		if err != nil {
+			s.Warnf("error parsing license expression: %s. %v", licenseRecord.LicenseID, err)
+			continue
+		}
+
+		//TODO: When no license for purl + version
+		// * Get the closest version that has license, if the previous and next version match, then we can return that license
+		// * Implement fallback to unlicense purl
 
 		// Convert spdxIDs array to []*pb.LicenseInfo
 		var licenses []*pb.LicenseInfo
 		for _, spdxID := range spdxIDs {
 			licenses = append(licenses, &pb.LicenseInfo{
-				Id:       strings.TrimSpace(spdxID),
-				FullName: "", // TODO: Implement SPDX ID to full name mapping
+				Id:       spdxID,
+				FullName: "",
 			})
 		}
 
 		componentInfo.Version = c.Version
-		componentInfo.Statement = license.LicenseName
+		componentInfo.Statement = licenseRecord.LicenseName
 		componentInfo.Licenses = licenses
 
 	}
@@ -120,17 +125,17 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 
 // GetDetails
 func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseDetails, *Error) {
-	license, err := lu.licenseDetailModel.GetLicenseByID(ctx, s, lic.ID)
+	licenseRecord, err := lu.licenseDetailModel.GetLicenseByID(ctx, s, lic.ID)
 	if err != nil {
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
-	if license.ID == 0 {
+	if licenseRecord.ID == 0 {
 		s.Warnf("LicenseDetail not found: %s", lic.ID)
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "LicenseDetail not found", Error: errors.New("license not found")}
 	}
-	s.Debugf("LicenseDetail: %v", license)
+	s.Debugf("LicenseDetail: %v", licenseRecord)
 
-	osadl, err := lu.osadlModel.GetOSADLByLicenseId(ctx, s, license.LicenseId)
+	osadl, err := lu.osadlModel.GetOSADLByLicenseId(ctx, s, licenseRecord.LicenseId)
 	if err != nil {
 		s.Errorf("Error getting OSADL for license: %s, err: %v\n", lic.ID, err)
 	}
@@ -138,16 +143,16 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 	s.Debugf("OSADL: %v", osadl)
 
 	return pb.LicenseDetails{
-		FullName: license.Name,
+		FullName: licenseRecord.Name,
 		Spdx: &pb.SPDX{
-			FullName:      license.Name,
-			Id:            license.LicenseId,
-			DetailsUrl:    license.DetailsUrl,
-			ReferenceUrl:  license.Reference,
-			IsDeprecated:  license.IsDeprecatedLicenseId,
-			IsOsiApproved: license.IsOsiApproved,
-			SeeAlso:       license.SeeAlso,
-			IsFsfLibre:    license.IsFsfLibre,
+			FullName:      licenseRecord.Name,
+			Id:            licenseRecord.LicenseId,
+			DetailsUrl:    licenseRecord.DetailsUrl,
+			ReferenceUrl:  licenseRecord.Reference,
+			IsDeprecated:  licenseRecord.IsDeprecatedLicenseId,
+			IsOsiApproved: licenseRecord.IsOsiApproved,
+			SeeAlso:       licenseRecord.SeeAlso,
+			IsFsfLibre:    licenseRecord.IsFsfLibre,
 		},
 		Osadl: &pb.OSADL{
 			Compatibility:          osadl.Compatibilities,
