@@ -6,7 +6,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
-	gd "github.com/scanoss/go-grpc-helper/pkg/grpc/database"
 	"github.com/scanoss/go-models/pkg/scanoss"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -22,7 +21,7 @@ import (
 
 type LicenseHandler struct {
 	config         *myconfig.ServerConfig
-	db             *sqlx.DB
+	sc             *scanoss.Client
 	licenseUseCase *usecase.LicenseUseCase
 }
 
@@ -30,7 +29,7 @@ type LicenseHandler struct {
 func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseHandler {
 	return &LicenseHandler{
 		config:         config,
-		db:             db,
+		sc:             scanoss.New(db),
 		licenseUseCase: usecase.NewLicenseUseCase(config, db),
 	}
 }
@@ -53,8 +52,6 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 
 func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BatchLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
-	q := gd.NewDBSelectContext(s, h.db, nil, false)
-	sc := scanoss.New(q, h.db)
 
 	componentsDTO, err := middleware.Process()
 	if err != nil {
@@ -64,7 +61,7 @@ func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.
 		}, nil
 	}
 
-	licenses, _ := h.licenseUseCase.GetLicenses(ctx, sc, componentsDTO)
+	licenses, _ := h.licenseUseCase.GetLicenses(ctx, h.sc, componentsDTO)
 
 	return &pb.BatchLicenseResponse{
 		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
