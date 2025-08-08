@@ -98,7 +98,7 @@ func TestPurlLicensesModel_GetLicensesByPurlAndSource(t *testing.T) {
 	model := NewPurlLicensesModel(db)
 
 	t.Run("GetExistingPurlLicensesBySource", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurlAndSource(ctx, "pkg:npm/express", "4.18.2", 1)
+		licenses, err := model.GetLicensesByPurlVersionAndSource(ctx, "pkg:npm/express", "4.18.2", []int16{1})
 		if err != nil {
 			t.Fatalf("Expected no error, got: %v", err)
 		}
@@ -114,7 +114,7 @@ func TestPurlLicensesModel_GetLicensesByPurlAndSource(t *testing.T) {
 	})
 
 	t.Run("GetNonExistentSourceID", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurlAndSource(ctx, "pkg:npm/express", "4.18.2", 999)
+		licenses, err := model.GetLicensesByPurlVersionAndSource(ctx, "pkg:npm/express", "4.18.2", []int16{999})
 		if err != nil {
 			t.Fatalf("Expected no error, got: %v", err)
 		}
