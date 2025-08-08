@@ -15,6 +15,7 @@ import (
 	"scanoss.com/licenses/pkg/license"
 	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
+	"strings"
 )
 
 type LicenseUseCase struct {
@@ -26,8 +27,6 @@ type LicenseUseCase struct {
 }
 
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
-	//TODO: refactor scanoss.NewClient to receive only a *sqlx.DB and extract the logger form ctx in all queries.
-	// Check: https://scanoss.atlassian.net/browse/SP-3015
 	return &LicenseUseCase{
 		config:             config,
 		licenseDetailModel: models.NewLicenseDetailModel(db),
@@ -53,7 +52,6 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 
 	var clir []*pb.ComponentLicenseInfo
 
-	// Get a component version. It may be specified on the purl, on the requirement, or the request may not have specified a version at all.
 	for _, cr := range crs {
 
 		// Prepare the response so the caller can track each component individually
@@ -85,50 +83,90 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 			continue
 		}
 
-		pl, err := lu.purlLicenseModel.GetLicensesByPurlVersion(ctx, c.Purl, c.Version)
+		purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, c.Purl, c.Version, []int16{
+			license.SourceComponentDeclared,
+			license.SourceSPDXAttributionFiles,
+			license.SourceInternalAttributionFiles})
+
 		if err != nil {
-			s.Warnf("error when querying purlLicense model for purl=%s version=%s. %w", c.Purl, c.Version, err)
+			s.Warnf("error when querying GetVersionedAndUnversionedLicenses() for purl=%s version=%s: %v", c.Purl, c.Version, err)
 			continue
 		}
 
-		if len(pl) == 0 {
-			s.Warnf("no license found for purl=%s version=%s. %w", c.Purl, c.Version, err)
+		if len(purlLicenses) == 0 {
+			s.Info("no purlLicenses data found for purl=%s version=%s. Trying with unversioned purl", c.Purl, c.Version)
+			purlLicenses, err = lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, c.Purl, []int16{
+				license.SourceComponentDeclared,
+				license.SourceSPDXAttributionFiles,
+				license.SourceInternalAttributionFiles})
+
+			if len(purlLicenses) == 0 {
+				s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, c.Version)
+				continue
+			}
+
+			if err != nil {
+				s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", c.Purl, err)
+				continue
+			}
+
+		}
+
+		//Retrieve all the uniques licenses ids
+		dedupLicensesIDs := license.ExtractLicenseIDsFromPurlLicenses(purlLicenses)
+		if len(dedupLicensesIDs) == 0 {
+			s.Warnf("no license data available for purl=%s version=%s", c.Purl, c.Version)
 			continue
 		}
 
-		// Apply source-based priority selection (SPDX tags > attribution files > scancode)
-		// TODO: Apply a holistic approach based on all the results.
-		bl := license.SelectBestLicense(pl)
+		s.Debugf("Found %d unique license_ids from all sources for purl=%s version=%s", len(dedupLicensesIDs), c.Purl, c.Version)
 
-		licenseRecord, err := sc.Models.Licenses.GetLicenseByID(ctx, bl.LicenseID)
-		if err != nil {
-			s.Warnf("error getting license by ID: %d. %v", bl.LicenseID, err)
+		var finalLicenses []*pb.LicenseInfo
+
+		// Process ALL license_ids with SPDX-level
+		allSpdxLicenses := make(map[string]bool)
+		for _, licenseID := range dedupLicensesIDs {
+			licenseRecord, err := sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
+			if err != nil {
+				s.Warnf("error getting license by ID: %d. %v", licenseID, err)
+				continue
+			}
+
+			// Parse license expression using SPDX expression parser
+			spdx, err := license.ParseLicenseExpression(licenseRecord.SPDX)
+			if err != nil {
+				s.Warnf("error parsing license expression for license_id %d: %s. %v", licenseID, licenseRecord.SPDX, err)
+				continue
+			}
+
+			// Add each SPDX license to our deduplicated collection
+			for _, l := range spdx {
+				if !allSpdxLicenses[l] {
+					allSpdxLicenses[l] = true
+					finalLicenses = append(finalLicenses, &pb.LicenseInfo{
+						Id:       l,
+						FullName: "", //TODO: add model for spdx_license table
+					})
+				}
+			}
+		}
+
+		// If no licenses could be processed, log and continue
+		if len(finalLicenses) == 0 {
+			s.Warnf("no valid licenses found after processing %d license IDs for purl=%s version=%s", len(dedupLicensesIDs), c.Purl, c.Version)
 			continue
 		}
 
-		// Parse license expression using SPDX expression parser
-		spdxIDs, err := license.ParseLicenseExpression(licenseRecord.SPDX)
-		if err != nil {
-			s.Warnf("error parsing license expression: %s. %v", licenseRecord.SPDX, err)
-			continue
+		// Build statement by joining all license IDs with " AND "
+		var licenseIDs []string
+		for _, l := range finalLicenses {
+			licenseIDs = append(licenseIDs, l.Id)
 		}
-
-		//TODO: When no license for purl + version
-		// * Get the closest version that has license, if the previous and next version match, then we can return that license
-		// * Implement fallback to unlicense purl
-
-		// Convert spdxIDs array to []*pb.LicenseInfo
-		var licenses []*pb.LicenseInfo
-		for _, spdxID := range spdxIDs {
-			licenses = append(licenses, &pb.LicenseInfo{
-				Id:       spdxID,
-				FullName: "",
-			})
-		}
+		statement := strings.Join(licenseIDs, " AND ")
 
 		componentInfo.Version = c.Version
-		componentInfo.Statement = licenseRecord.LicenseName
-		componentInfo.Licenses = licenses
+		componentInfo.Statement = statement
+		componentInfo.Licenses = finalLicenses
 
 	}
 

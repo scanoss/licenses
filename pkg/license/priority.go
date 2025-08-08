@@ -2,49 +2,34 @@ package license
 
 import (
 	models "scanoss.com/licenses/pkg/model"
-	"sort"
 )
 
 // Source ID constants for license detection methods
 const (
-	SourceComponentDeclared        = 0
-	SourceInternalAttributionFiles = 3
-	SourceSPDXAttributionFiles     = 6
-	SourceScancodeAttributionFiles = 5
+	SourceComponentDeclared        = int16(0)
+	SourceInternalAttributionFiles = int16(3)
+	SourceSPDXAttributionFiles     = int16(6)
+	SourceScancodeAttributionFiles = int16(5)
 )
 
-// Component-level source priority order
-var componentSourcePriorityOrder = []int16{
-	// highest priority
-	SourceSPDXAttributionFiles,     // Detected from SPDX-License-Identifier tag in attribution files
-	SourceInternalAttributionFiles, // Internal mechanism detected in attribution files (LICENSE, COPYING, META-INF, etc)
-	SourceScancodeAttributionFiles, // Component level through scancode in attribution files
-	SourceComponentDeclared,        // Component Declared
-}
-
-// GetPriorityLevel returns the priority level for a given source_id (lower index = higher priority)
-func GetPriorityLevel(sourceID int16) int {
-	for index, sourceInArray := range componentSourcePriorityOrder {
-		if sourceInArray == sourceID {
-			return index
-		}
-	}
-	return 999 // Unknown source_id gets lowest priority
-}
-
-// SelectBestLicense selects the license with the highest priority source_id
-func SelectBestLicense(licenses []models.PurlLicense) models.PurlLicense {
+// ExtractLicenseIDsFromPurlLicenses extracts all unique SPDX licenses from all license_ids
+func ExtractLicenseIDsFromPurlLicenses(licenses []models.PurlLicense) []int32 {
 	if len(licenses) == 0 {
-		return models.PurlLicense{}
-	}
-	if len(licenses) == 1 {
-		return licenses[0]
+		return []int32{}
 	}
 
-	// Sort by priority (lower priority value = higher priority)
-	sort.Slice(licenses, func(i, j int) bool {
-		return GetPriorityLevel(licenses[i].SourceID) < GetPriorityLevel(licenses[j].SourceID)
-	})
+	// Collect all unique license_ids from all sources
+	allLicenseIDs := make(map[int32]bool)
 
-	return licenses[0]
+	for _, license := range licenses {
+		allLicenseIDs[license.LicenseID] = true
+	}
+
+	// Convert map to slice
+	var result []int32
+	for licenseID := range allLicenseIDs {
+		result = append(result, licenseID)
+	}
+
+	return result
 }
