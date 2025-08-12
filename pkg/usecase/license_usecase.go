@@ -20,6 +20,7 @@ import (
 
 type LicenseUseCase struct {
 	config             *myconfig.ServerConfig
+	sc                 *scanoss.Client
 	purlLicenseModel   *models.PurlLicensesModel
 	licenseDetailModel models.LicenseDetailModelInterface
 	osadlModel         models.OSADLModelInterface
@@ -29,6 +30,7 @@ type LicenseUseCase struct {
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
 	return &LicenseUseCase{
 		config:             config,
+		sc:                 scanoss.New(db),
 		licenseDetailModel: models.NewLicenseDetailModel(db),
 		purlLicenseModel:   models.NewPurlLicensesModel(db),
 		osadlModel:         models.NewOSADLModel(db),
@@ -47,7 +49,7 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseMod
 }
 
 // GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
+func (lu LicenseUseCase) GetLicenses(ctx context.Context, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	var clir []*pb.ComponentLicenseInfo
@@ -73,7 +75,7 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 		}
 		clir = append(clir, componentInfo)
 
-		c, err := sc.Component.GetComponent(ctx, types.ComponentRequest{
+		c, err := lu.sc.Component.GetComponent(ctx, types.ComponentRequest{
 			Purl:        cr.Purl,
 			Requirement: cr.Requirement,
 		})
@@ -126,7 +128,7 @@ func (lu LicenseUseCase) GetLicenses(ctx context.Context, sc *scanoss.Client, cr
 		// Process ALL license_ids with SPDX-level
 		allSpdxLicenses := make(map[string]bool)
 		for _, licenseID := range dedupLicensesIDs {
-			licenseRecord, err := sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
+			licenseRecord, err := lu.sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
 			if err != nil {
 				s.Warnf("error getting license by ID: %d. %v", licenseID, err)
 				continue

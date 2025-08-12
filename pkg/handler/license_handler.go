@@ -6,7 +6,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
-	"github.com/scanoss/go-models/pkg/scanoss"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
@@ -21,7 +20,6 @@ import (
 
 type LicenseHandler struct {
 	config         *myconfig.ServerConfig
-	sc             *scanoss.Client
 	licenseUseCase *usecase.LicenseUseCase
 }
 
@@ -29,7 +27,6 @@ type LicenseHandler struct {
 func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseHandler {
 	return &LicenseHandler{
 		config:         config,
-		sc:             scanoss.New(db),
 		licenseUseCase: usecase.NewLicenseUseCase(config, db),
 	}
 }
@@ -61,7 +58,7 @@ func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.
 		}, nil
 	}
 
-	licenses, _ := h.licenseUseCase.GetLicenses(ctx, h.sc, componentsDTO)
+	licenses, _ := h.licenseUseCase.GetLicenses(ctx, componentsDTO)
 
 	return &pb.BatchLicenseResponse{
 		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
