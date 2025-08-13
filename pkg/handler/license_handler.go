@@ -47,6 +47,31 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 	return &statusResp
 }
 
+func (h *LicenseHandler) GetComponentLicense(ctx context.Context, middleware middleware.Middleware[dto.ComponentRequestDTO]) (*pb.ComponentLicenseResponse, error) {
+	s := ctxzap.Extract(ctx).Sugar()
+
+	componentDTO, err := middleware.Process()
+	if err != nil {
+		return &pb.ComponentLicenseResponse{
+			Status:    h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
+			Component: &pb.ComponentLicenseInfo{},
+		}, nil
+	}
+
+	component, useCaseErr := h.licenseUseCase.GetComponentLicense(ctx, componentDTO)
+	if useCaseErr != nil {
+		return &pb.ComponentLicenseResponse{
+			Status:    h.getResponseStatus(s, ctx, useCaseErr.Status, useCaseErr.Code, useCaseErr.Error),
+			Component: &pb.ComponentLicenseInfo{},
+		}, nil
+	}
+
+	return &pb.ComponentLicenseResponse{
+		Status:    h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, nil),
+		Component: component,
+	}, nil
+}
+
 func (h *LicenseHandler) GetComponentsLicense(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.ComponentsLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 

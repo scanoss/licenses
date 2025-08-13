@@ -26,6 +26,14 @@ func (m *mockMiddleware) Process() ([]dto.ComponentRequestDTO, error) {
 	return m.processFunc()
 }
 
+type mockComponentMiddleware struct {
+	processFunc func() (dto.ComponentRequestDTO, error)
+}
+
+func (m *mockComponentMiddleware) Process() (dto.ComponentRequestDTO, error) {
+	return m.processFunc()
+}
+
 type mockLicenseDetailsMiddleware struct {
 	processFunc func() (dto.LicenseRequestDTO, error)
 }
@@ -126,6 +134,85 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 			t.Errorf("Expected SUCCESS status, got %v", response.Status.Status)
 		}
 
+	})
+
+}
+
+func TestLicenseHandler_GetComponentLicense(t *testing.T) {
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
+	config := &myconfig.ServerConfig{}
+	content, err := os.ReadFile("../model/tests/licenses.sql")
+	if err != nil {
+		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer models.CloseDB(db)
+	_, err = db.Exec(string(content))
+	if err != nil {
+		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	handler := NewLicenseHandler(config, db)
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
+
+	t.Run("successful middleware processing", func(t *testing.T) {
+		mockMW := &mockComponentMiddleware{
+			processFunc: func() (dto.ComponentRequestDTO, error) {
+				return dto.ComponentRequestDTO{
+					Purl:        "pkg:npm/test",
+					Requirement: "1.0.0",
+				}, nil
+			},
+		}
+
+		response, err := handler.GetComponentLicense(ctx, mockMW)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		if response == nil {
+			t.Fatal("Expected response, got nil")
+		}
+
+		if response.Status.Status != common.StatusCode_SUCCESS {
+			t.Errorf("Expected SUCCESS status, got %v", response.Status.Status)
+		}
+
+		if response.Component == nil {
+			t.Error("Expected component to be initialized")
+		}
+	})
+
+	t.Run("middleware processing error", func(t *testing.T) {
+		mockMW := &mockComponentMiddleware{
+			processFunc: func() (dto.ComponentRequestDTO, error) {
+				return dto.ComponentRequestDTO{}, errors.New("middleware error")
+			},
+		}
+
+		response, err := handler.GetComponentLicense(ctx, mockMW)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		if response == nil {
+			t.Fatal("Expected response, got nil")
+		}
+
+		if response.Status.Status != common.StatusCode_FAILED {
+			t.Errorf("Expected FAILED status, got %v", response.Status.Status)
+		}
+
+		if response.Component == nil {
+			t.Error("Expected component to be initialized")
+		}
 	})
 
 }
