@@ -10,7 +10,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/scanoss/go-grpc-helper v0.9.0
 	github.com/scanoss/go-models v0.2.0
-	github.com/scanoss/papi v0.12.0
+	github.com/scanoss/papi v0.13.0
 	github.com/scanoss/zap-logging-helper v0.4.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
@@ -67,5 +67,4 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/scanoss/papi => ../papi
-
+//replace github.com/scanoss/papi => ../papi
