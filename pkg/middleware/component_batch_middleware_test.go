@@ -20,7 +20,7 @@ func TestComponentBatchMiddleware(t *testing.T) {
 	s := ctxzap.Extract(ctx).Sugar()
 	middleware := &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
 		MiddlewareBase: MiddlewareBase{s: s},
-		req: &commonv2.ComponentBatchRequest{
+		req: &commonv2.ComponentsRequest{
 			Components: []*commonv2.ComponentRequest{
 				{Purl: "pkg:npm/lodash", Requirement: "4.17.21"},
 				{Purl: "pkg:npm/react", Requirement: "18.0.0"},
@@ -45,7 +45,7 @@ func TestNewComponentBatchMiddlewareWithEmptyRequest(t *testing.T) {
 	s := ctxzap.Extract(ctx).Sugar()
 	middleware := &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
 		MiddlewareBase: MiddlewareBase{s: s},
-		req: &commonv2.ComponentBatchRequest{
+		req: &commonv2.ComponentsRequest{
 			Components: []*commonv2.ComponentRequest{},
 		},
 	}

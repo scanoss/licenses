@@ -48,8 +48,8 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseMod
 	}
 }
 
-// GetLicenses
-func (lu LicenseUseCase) GetLicenses(ctx context.Context, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
+// GetComponentsLicense
+func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	var clir []*pb.ComponentLicenseInfo
