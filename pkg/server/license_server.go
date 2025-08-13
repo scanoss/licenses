@@ -26,6 +26,11 @@ func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServ
 	}
 }
 
+// GetComponentLicenses search licenses for one component.
+func (ls LicenseServer) GetComponentLicenses(ctx context.Context, req *commonv2.ComponentRequest) (*pb.ComponentLicenseResponse, error) {
+	return ls.handler.GetComponentLicense(ctx, middleware.NewComponentRequestMiddleware(req, ctx))
+}
+
 // GetComponentsLicenses search licenses for multiple components in a single request.
 func (ls LicenseServer) GetComponentsLicenses(ctx context.Context, request *commonv2.ComponentsRequest) (*pb.ComponentsLicenseResponse, error) {
 	return ls.handler.GetComponentsLicense(ctx, middleware.NewComponentsRequestMiddleware(request, ctx))
