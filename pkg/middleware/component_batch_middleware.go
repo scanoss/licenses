@@ -11,11 +11,11 @@ import (
 )
 
 type ComponentBatchMiddleware[TOutput any] struct {
-	req *commonv2.ComponentBatchRequest
+	req *commonv2.ComponentsRequest
 	MiddlewareBase
 }
 
-func NewComponentBatchMiddleware(req *commonv2.ComponentBatchRequest, ctx context.Context) Middleware[[]dto.ComponentRequestDTO] {
+func NewComponentsRequestMiddleware(req *commonv2.ComponentsRequest, ctx context.Context) Middleware[[]dto.ComponentRequestDTO] {
 	return &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
 		MiddlewareBase: MiddlewareBase{s: ctxzap.Extract(ctx).Sugar()},
 		req:            req,

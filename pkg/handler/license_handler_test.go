@@ -112,7 +112,7 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 			},
 		}
 
-		response, err := handler.GetLicenses(ctx, mockMW)
+		response, err := handler.GetComponentsLicense(ctx, mockMW)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)

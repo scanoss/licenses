@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -27,9 +26,9 @@ func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServ
 	}
 }
 
-// GetLicenses searches for license information.
-func (ls LicenseServer) GetLicenses(ctx context.Context, request *commonv2.ComponentBatchRequest) (*pb.BatchLicenseResponse, error) {
-	return ls.handler.GetLicenses(ctx, middleware.NewComponentBatchMiddleware(request, ctx))
+// GetComponentsLicenses search licenses for multiple components in a single request.
+func (ls LicenseServer) GetComponentsLicenses(ctx context.Context, request *commonv2.ComponentsRequest) (*pb.ComponentsLicenseResponse, error) {
+	return ls.handler.GetComponentsLicense(ctx, middleware.NewComponentsRequestMiddleware(request, ctx))
 }
 
 // GetDetails searches for license information.

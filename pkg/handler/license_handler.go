@@ -43,24 +43,24 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 	}
 	s.Debugf(message)
 	statusResp := common.StatusResponse{Status: gRPCStatusCode, Message: message}
-	s.Debugf("statusResp: %v", statusResp)
+	s.Debugf("statusResp: %v", &statusResp)
 	return &statusResp
 }
 
-func (h *LicenseHandler) GetLicenses(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.BatchLicenseResponse, error) {
+func (h *LicenseHandler) GetComponentsLicense(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.ComponentsLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	componentsDTO, err := middleware.Process()
 	if err != nil {
-		return &pb.BatchLicenseResponse{
+		return &pb.ComponentsLicenseResponse{
 			Status:     h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
 			Components: []*pb.ComponentLicenseInfo{},
 		}, nil
 	}
 
-	licenses, _ := h.licenseUseCase.GetLicenses(ctx, componentsDTO)
+	licenses, _ := h.licenseUseCase.GetComponentsLicense(ctx, componentsDTO)
 
-	return &pb.BatchLicenseResponse{
+	return &pb.ComponentsLicenseResponse{
 		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
 		Components: licenses,
 	}, nil
