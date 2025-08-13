@@ -78,12 +78,12 @@ package: package_amd  ## Build & Package an AMD 64 binary
 
 package_amd: version  ## Build & Package an AMD 64 binary
 	@echo "Building AMD binary $(VERSION) and placing into scripts..."
-	go generate ./pkg/cmd/server.go
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-license-api ./cmd/server
+	go generate ./pkg/app/app.go
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-license-api ./cmd/license-api
 	bash ./package-scripts.sh linux-amd64 $(VERSION)
 
 package_arm: version  ## Build & Package an ARM 64 binary
 	@echo "Building ARM binary $(VERSION) and placing into scripts..."
-	go generate ./pkg/cmd/server.go
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-license-api ./cmd/server
+	go generate ./pkg/app/app.go
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ./scripts/scanoss-license-api ./cmd/license-api
 	bash ./package-scripts.sh linux-arm64 $(VERSION)
