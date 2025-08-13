@@ -10,9 +10,16 @@
 #
 ################################################################
 
+FORCE_FLAG=false
+if [ "$1" = "-f" ]; then
+  FORCE_FLAG=true
+  shift
+fi
+
 if [ "$1" = "-h" ] || [ "$1" = "-help" ] ; then
-  echo "$0 [-help] [environment]"
+  echo "$0 [-f] [-help] [environment]"
   echo "   Setup and copy the relevant files into place on a server to run the SCANOSS LICENSES API"
+  echo "   [-f] force installation (skip all prompts)"
   echo "   [environment] allows the optional specification of a suffix to allow multiple services to be deployed at the same time (optional)"
   exit 1
 fi
@@ -40,19 +47,23 @@ if [ "$EUID" -ne 0 ] ; then
   echo "Please run as root."
   exit 1
 fi
-read -p "Install SCANOSS Licenses API $ENVIRONMENT (y/n) [n]? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]] ; then
-  echo "Starting installation..."
+if [ "$FORCE_FLAG" = true ]; then
+  echo "Force installation enabled. Starting installation..."
 else
-  echo "Stopping."
-  exit 1
+  read -p "Install SCANOSS Licenses API $ENVIRONMENT (y/n) [n]? " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]] ; then
+    echo "Starting installation..."
+  else
+    echo "Stopping."
+    exit 1
+  fi
 fi
 # Setup all the required folders and ownership
 echo "Setting up Licenses API system folders..."
 if ! mkdir -p $CONFIG_DIR ; then
   echo "Error: Problem creating licenses API system folders: $CONFIG_DIR."
-  exti 1
+  exit 1
 fi
 if ! mkdir -p $L_PATH ; then
   echo "Error: Problem creating licenses logging folder: $L_PATH."
@@ -85,7 +96,7 @@ echo "Copying service startup config..."
 if [ -f "$SC_SERVICE_FILE" ] ; then
   if ! cp "$SC_SERVICE_FILE" /etc/systemd/system ; then
     echo "Error: service copy failed"
-    exti 1
+    exit 1
   fi
 fi
 if ! cp scanoss-licenses-api.sh /usr/local/bin ; then
@@ -132,9 +143,8 @@ SQLITE_TARGET_PATH="$SQLITE_PATH/$TARGET_SQLITE_DB_NAME"
 if [ -n "$SQLITE_DB_PATH" ]; then
     # If the target DB already exists, ask to replace it.
     if [ -f "$SQLITE_TARGET_PATH" ]; then
-        read -p "SQLite file found at $(realpath "$SQLITE_DB_PATH"). Do you want to replace the ${SQLITE_TARGET_PATH}? (n/y) [n]: " -n 1 -r
-              echo
-       if [[ "$REPLY" =~ ^[Yy]$ ]] ; then
+        if [ "$FORCE_FLAG" = true ]; then
+          echo "Force flag set. Replacing existing database at ${SQLITE_TARGET_PATH}..."
           echo "Copying SQLite from $(realpath "$SQLITE_DB_PATH") to $SQLITE_PATH"
           echo "Please be patient, this process might take some minutes..."
           if ! cp "$SQLITE_DB_PATH" "$SQLITE_TARGET_PATH"; then
@@ -142,9 +152,21 @@ if [ -n "$SQLITE_DB_PATH" ]; then
               exit 1
           fi
           echo "Database successfully copied."
-       else
-         echo "Skipping DB copy."
-       fi
+        else
+          read -p "SQLite file found at $(realpath "$SQLITE_DB_PATH"). Do you want to replace the ${SQLITE_TARGET_PATH}? (n/y) [n]: " -n 1 -r
+                echo
+         if [[ "$REPLY" =~ ^[Yy]$ ]] ; then
+            echo "Copying SQLite from $(realpath "$SQLITE_DB_PATH") to $SQLITE_PATH"
+            echo "Please be patient, this process might take some minutes..."
+            if ! cp "$SQLITE_DB_PATH" "$SQLITE_TARGET_PATH"; then
+                echo "Error: Failed to copy SQLite database."
+                exit 1
+            fi
+            echo "Database successfully copied."
+         else
+           echo "Skipping DB copy."
+         fi
+        fi
     else
        # Copy database
        echo "Copying SQLite from $(realpath "$SQLITE_DB_PATH") to $SQLITE_PATH"
@@ -171,17 +193,26 @@ fi
 TARGET_CONFIG_PATH="$CONFIG_DIR/$CONF"
 if [ -n "$CONFIG_FILE_PATH" ]; then
   if [ -f "$TARGET_CONFIG_PATH" ]; then
-      read -p "Configuration file found at $(realpath "$TARGET_CONFIG_PATH"). Do you want to replace $TARGET_CONFIG_PATH? (n/y) [n]: " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]] ; then
-          echo "Copying config file from $(realpath "$CONFIG_FILE_PATH") to $CONFIG_DIR ..."
-          if ! cp "$CONFIG_FILE_PATH" "$CONFIG_DIR/"; then
-            echo "Error: Failed to copy config file."
-            exit 1
-          fi
-        else
-          echo "Skipping config file copy."
+      if [ "$FORCE_FLAG" = true ]; then
+        echo "Force flag set. Replacing existing config file at $TARGET_CONFIG_PATH..."
+        echo "Copying config file from $(realpath "$CONFIG_FILE_PATH") to $CONFIG_DIR ..."
+        if ! cp "$CONFIG_FILE_PATH" "$CONFIG_DIR/"; then
+          echo "Error: Failed to copy config file."
+          exit 1
         fi
+      else
+        read -p "Configuration file found at $(realpath "$TARGET_CONFIG_PATH"). Do you want to replace $TARGET_CONFIG_PATH? (n/y) [n]: " -n 1 -r
+          echo
+          if [[ $REPLY =~ ^[Yy]$ ]] ; then
+            echo "Copying config file from $(realpath "$CONFIG_FILE_PATH") to $CONFIG_DIR ..."
+            if ! cp "$CONFIG_FILE_PATH" "$CONFIG_DIR/"; then
+              echo "Error: Failed to copy config file."
+              exit 1
+            fi
+          else
+            echo "Skipping config file copy."
+          fi
+      fi
   else
       echo "Copying config file from $(realpath "$CONFIG_FILE_PATH") to $CONFIG_DIR ..."
       if ! cp "$CONFIG_FILE_PATH" "$CONFIG_DIR/"; then
@@ -190,17 +221,26 @@ if [ -n "$CONFIG_FILE_PATH" ]; then
       fi
   fi
 else
-   read -p "Configuration file not found. Do you want to download an example $CONF file? (n/y) [n]: " -n 1 -r
-        echo
-      if [[ $REPLY =~ ^[Yy]$ ]] ; then
-        if curl $CONF_DOWNLOAD_URL > "$CONFIG_DIR/$CONF" ; then
-          echo "Configuration file successfully downloaded to $CONFIG_DIR/$CONF"
+   if [ "$FORCE_FLAG" = true ]; then
+     echo "Force flag set. Downloading default configuration file..."
+     if curl $CONF_DOWNLOAD_URL > "$CONFIG_DIR/$CONF" ; then
+       echo "Configuration file successfully downloaded to $CONFIG_DIR/$CONF"
+     else
+       echo "Error: Failed to download configuration file from $CONF_DOWNLOAD_URL"
+     fi
+   else
+     read -p "Configuration file not found. Do you want to download an example $CONF file? (n/y) [n]: " -n 1 -r
+          echo
+        if [[ $REPLY =~ ^[Yy]$ ]] ; then
+          if curl $CONF_DOWNLOAD_URL > "$CONFIG_DIR/$CONF" ; then
+            echo "Configuration file successfully downloaded to $CONFIG_DIR/$CONF"
+          else
+            echo "Error: Failed to download configuration file from $CONF_DOWNLOAD_URL"
+          fi
         else
-          echo "Error: Failed to download configuration file from $CONF_DOWNLOAD_URL"
+          echo "Warning: Please put the config file into: $CONFIG_DIR/$CONF"
         fi
-      else
-        echo "Warning: Please put the config file into: $CONFIG_DIR/$CONF"
-      fi
+   fi
 fi
 
 if [ ! -f "$TARGET_CONFIG_PATH" ] ; then
