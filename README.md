@@ -1,5 +1,5 @@
 # SCANOSS Platform 2.0 Licenses
-Welcome to the license server for SCANOSS Platform 2.0
+Welcome to the licenses server for SCANOSS Platform 2.0
 
 **Warning** Work In Progress **Warning**
 

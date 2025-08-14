@@ -17,7 +17,7 @@ type LicenseServer struct {
 	db      *sqlx.DB
 }
 
-// NewLicenseServer creates a new instance of License Server.
+// NewLicenseServer creates a new instance of Licenses Server.
 func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServer {
 	return &LicenseServer{
 		config:  config,
