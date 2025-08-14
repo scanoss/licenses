@@ -10,7 +10,7 @@
 DEFAULT_ENV="prod"
 ENVIRONMENT="${1:-$DEFAULT_ENV}"
 LOGFILE=/var/log/scanoss/licenses/scanoss-licenses-${ENVIRONMENT}.log
-CONF_FILE=/usr/local/etc/scanoss/licensess/app-config-${ENVIRONMENT}.json
+CONF_FILE=/usr/local/etc/scanoss/licenses/app-config-${ENVIRONMENT}.json
 # Rotate log
 if [ -f "$LOGFILE" ] ; then
   echo "rotating logfile..."
