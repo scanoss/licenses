@@ -156,11 +156,18 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 
 			// Add each SPDX license to our deduplicated collection
 			for _, l := range spdx {
+
+				spdxLicenseDetail, err := lu.sc.Models.Licenses.GetSPDXLicenseDetails(ctx, l)
+				if err != nil {
+					s.Warnf("error getting SPDX license details for license_id %d: %s. %v", licenseID, licenseRecord.SPDX, err)
+					spdxLicenseDetail.Name = ""
+				}
+
 				if !allSpdxLicenses[l] {
 					allSpdxLicenses[l] = true
 					finalLicenses = append(finalLicenses, &pb.LicenseInfo{
 						Id:       l,
-						FullName: "", //TODO: add model for spdx_license table
+						FullName: spdxLicenseDetail.Name,
 					})
 				}
 			}
@@ -190,41 +197,42 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 
 // GetDetails
 func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseDetails, *Error) {
-	licenseRecord, err := lu.licenseDetailModel.GetLicenseByID(ctx, s, lic.ID)
+	licenseRecord, err := lu.sc.Models.Licenses.GetSPDXLicenseDetails(ctx, lic.ID)
 	if err != nil {
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
 	}
-	if licenseRecord.ID == 0 {
+	if licenseRecord.ID == "" {
 		s.Warnf("LicenseDetail not found: %s", lic.ID)
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "LicenseDetail not found", Error: errors.New("license not found")}
 	}
 	s.Debugf("LicenseDetail: %v", licenseRecord)
 
-	osadl, err := lu.osadlModel.GetOSADLByLicenseId(ctx, s, licenseRecord.LicenseId)
-	if err != nil {
-		s.Errorf("Error getting OSADL for license: %s, err: %v\n", lic.ID, err)
-	}
+	//TODO: Add OSADL model to postgress db
+	/*	osadl, err := lu.osadlModel.GetOSADLByLicenseId(ctx, s, licenseRecord.LicenseId)
+		if err != nil {
+			s.Errorf("Error getting OSADL for license: %s, err: %v\n", lic.ID, err)
+		}
 
-	s.Debugf("OSADL: %v", osadl)
+		s.Debugf("OSADL: %v", osadl)*/
 
 	return pb.LicenseDetails{
 		FullName: licenseRecord.Name,
 		Spdx: &pb.SPDX{
 			FullName:      licenseRecord.Name,
-			Id:            licenseRecord.LicenseId,
-			DetailsUrl:    licenseRecord.DetailsUrl,
+			Id:            licenseRecord.ID,
+			DetailsUrl:    licenseRecord.DetailsURL,
 			ReferenceUrl:  licenseRecord.Reference,
 			IsDeprecated:  licenseRecord.IsDeprecatedLicenseId,
 			IsOsiApproved: licenseRecord.IsOsiApproved,
 			SeeAlso:       licenseRecord.SeeAlso,
-			IsFsfLibre:    licenseRecord.IsFsfLibre,
 		},
-		Osadl: &pb.OSADL{
-			Compatibility:          osadl.Compatibilities,
-			Incompatibility:        osadl.Incompatibilities,
-			CopyleftClause:         osadl.CopyleftClause,
-			DependingCompatibility: osadl.DependingCompatibilities,
-			PatentHints:            osadl.PatentHints,
-		},
+		// TODO: Add OSADL model to postgress db
+		/*		Osadl: &pb.OSADL{
+				Compatibility:          osadl.Compatibilities,
+				Incompatibility:        osadl.Incompatibilities,
+				CopyleftClause:         osadl.CopyleftClause,
+				DependingCompatibility: osadl.DependingCompatibilities,
+				PatentHints:            osadl.PatentHints,
+			},*/
 	}, nil
 }
