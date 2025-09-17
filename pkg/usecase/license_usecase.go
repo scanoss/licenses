@@ -82,16 +82,18 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 			requirement = ""
 		}
 
-		componentInfo := &pb.ComponentLicenseInfo{
-			Purl:        purl,
-			Requirement: requirement,
-		}
-		clir = append(clir, componentInfo)
-
 		c, err := lu.sc.Component.GetComponent(ctx, types.ComponentRequest{
 			Purl:        cr.Purl,
 			Requirement: cr.Requirement,
 		})
+
+		componentInfo := &pb.ComponentLicenseInfo{
+			Purl:        purl,
+			Requirement: requirement,
+			Version:     c.Version,
+		}
+
+		clir = append(clir, componentInfo)
 
 		if err != nil {
 			s.Warnf("error when resolving component version. %w", err)
@@ -177,9 +179,9 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 		for _, l := range finalLicenses {
 			licenseIDs = append(licenseIDs, l.Id)
 		}
+		//TODO: the statement should come from the DB, it's not accurate to build everything with AND
 		statement := strings.Join(licenseIDs, " AND ")
 
-		componentInfo.Version = c.Version
 		componentInfo.Statement = statement
 		componentInfo.Licenses = finalLicenses
 
