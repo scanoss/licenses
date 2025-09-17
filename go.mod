@@ -68,3 +68,4 @@ require (
 )
 
 //replace github.com/scanoss/papi => ../papi
+// replace github.com/scanoss/go-models => ../go-models
