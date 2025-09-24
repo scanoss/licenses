@@ -20,5 +20,9 @@
     "DenyListFile": "",
     "BlockByDefault": false,
     "TrustProxy": false
+  },
+  "Telemetry": {
+    "Enabled": true,
+    "OltpExporter": "localhost:4317"
   }
 }

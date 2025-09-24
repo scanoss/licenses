@@ -15,6 +15,7 @@ import (
 	"scanoss.com/licenses/pkg/license"
 	models "scanoss.com/licenses/pkg/model"
 	"scanoss.com/licenses/pkg/protocol/rest"
+	"scanoss.com/licenses/pkg/service"
 	"strings"
 )
 
@@ -25,9 +26,11 @@ type LicenseUseCase struct {
 	licenseDetailModel models.LicenseDetailModelInterface
 	osadlModel         models.OSADLModelInterface
 	db                 *sqlx.DB
+	metrics            *service.LicenseMetrics
 }
 
 func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
+	metrics, _ := service.NewLicenseMetrics(config)
 	return &LicenseUseCase{
 		config:             config,
 		sc:                 scanoss.New(db),
@@ -35,16 +38,19 @@ func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCa
 		purlLicenseModel:   models.NewPurlLicensesModel(db),
 		osadlModel:         models.NewOSADLModel(db),
 		db:                 db,
+		metrics:            metrics,
 	}
 }
 
 // WithLicenseModel option for dependency injection (mainly for testing)
 func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseModel models.LicenseDetailModelInterface,
 	osadlModel models.OSADLModelInterface) *LicenseUseCase {
+	metrics, _ := service.NewLicenseMetrics(config)
 	return &LicenseUseCase{
 		config:             config,
 		licenseDetailModel: licenseModel,
 		osadlModel:         osadlModel,
+		metrics:            metrics,
 	}
 }
 
@@ -95,6 +101,7 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 
 		if err != nil {
 			s.Warnf("error when resolving component version. %w", err)
+			lu.metrics.RecordPURLComponentNotFound(ctx, cr.Purl)
 			continue
 		}
 
@@ -110,6 +117,8 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 
 		if len(purlLicenses) == 0 {
 			s.Info("no purlLicenses data found for purl=%s version=%s. Trying with unversioned purl", c.Purl, c.Version)
+			lu.metrics.RecordPURLNoLicenseVersioned(ctx, c.Purl)
+
 			purlLicenses, err = lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, c.Purl, []int16{
 				license.SourceComponentDeclared,
 				license.SourceSPDXAttributionFiles,
@@ -117,6 +126,7 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 
 			if len(purlLicenses) == 0 {
 				s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, c.Version)
+				lu.metrics.RecordPURLNoLicenseFallback(ctx, c.Purl)
 				continue
 			}
 
@@ -125,6 +135,11 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 				continue
 			}
 
+			// Record that we found license using fallback (unversioned) lookup
+			lu.metrics.RecordPURLLicenseFoundFallback(ctx, c.Purl)
+		} else {
+			// Record that we found license with exact PURL+version match
+			lu.metrics.RecordPURLLicenseFoundExact(ctx, c.Purl)
 		}
 
 		//Retrieve all the uniques licenses ids
@@ -151,8 +166,10 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 			spdx, err := license.ParseLicenseExpression(licenseRecord.SPDX)
 			if err != nil {
 				s.Warnf("error parsing license expression for license_id %d: %s. %v", licenseID, licenseRecord.SPDX, err)
+				lu.metrics.RecordLicenseParsingResult(ctx, false)
 				continue
 			}
+			lu.metrics.RecordLicenseParsingResult(ctx, true)
 
 			// Add each SPDX license to our deduplicated collection
 			for _, l := range spdx {

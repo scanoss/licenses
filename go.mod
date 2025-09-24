@@ -13,6 +13,8 @@ require (
 	github.com/scanoss/papi v0.13.0
 	github.com/scanoss/zap-logging-helper v0.4.0
 	github.com/stretchr/testify v1.10.0
+	go.opentelemetry.io/otel v1.37.0
+	go.opentelemetry.io/otel/metric v1.37.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.74.2
 	modernc.org/sqlite v1.38.2
@@ -44,11 +46,9 @@ require (
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.62.0 // indirect
-	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.37.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.37.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.37.0 // indirect
-	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.37.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
