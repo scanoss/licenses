@@ -3,8 +3,8 @@
     "Name": "License Service",
     "Debug": true,
     "Mode":  "dev",
-    "GRPCPort": "50051",
-    "RESTPort": "40051"
+    "GRPCPort": "50057",
+    "RESTPort": "40057"
   },
   "Database": {
     "Driver": "postgres",

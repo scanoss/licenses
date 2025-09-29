@@ -3,8 +3,8 @@
     "Name": "License Service",
     "Debug": true,
     "Mode":  "prod",
-    "GRPCPort": "50059",
-    "RESTPort": "40059"
+    "GRPCPort": "50057",
+    "RESTPort": "40057"
   },
   "Database": {
     "Driver": "sqlite",

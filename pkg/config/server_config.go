@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	defaultGrpcPort = "50051"
-	defaultRestPort = "40051"
+	defaultGrpcPort = "50057"
+	defaultRestPort = "40057"
 )
 
 // ServerConfig is configuration for Server.
@@ -105,7 +105,7 @@ func setServerConfigDefaults(cfg *ServerConfig) {
 	cfg.Database.Trace = false
 	cfg.Components.CommitMissing = false
 	cfg.Logging.DynamicLogging = true
-	cfg.Logging.DynamicPort = "localhost:60051"
+	cfg.Logging.DynamicPort = "localhost:60057"
 	cfg.Telemetry.Enabled = false
 	cfg.Telemetry.OltpExporter = "0.0.0.0:4317" // Default OTEL OLTP gRPC Exporter endpoint
 }
