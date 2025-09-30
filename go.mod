@@ -12,7 +12,7 @@ require (
 	github.com/scanoss/go-models v0.2.0
 	github.com/scanoss/papi v0.24.0
 	github.com/scanoss/zap-logging-helper v0.4.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.74.2
 	modernc.org/sqlite v1.38.2
