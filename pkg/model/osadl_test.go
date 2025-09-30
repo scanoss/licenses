@@ -20,7 +20,7 @@ func TestGetOSDALByLicenseId(t *testing.T) {
 	defer CloseDB(db)
 	conn := sqliteConn(t, ctx, db) // Get a connection from the pool
 	defer CloseConn(conn)
-	err = loadTestSQLDataFiles(db, ctx, conn, []string{"tests/osadl.sql"})
+	err = loadTestSQLDataFiles(db, ctx, []string{"tests/osadl.sql"})
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}

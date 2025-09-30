@@ -34,7 +34,7 @@ func TestPurlLicensesModel_GetLicensesByPurl(t *testing.T) {
 	defer CloseDB(db)
 
 	// Load test data
-	err = loadTestSQLDataFiles(db, ctx, nil, []string{"tests/purl_licenses.sql"})
+	err = loadTestSQLDataFiles(db, ctx, []string{"tests/purl_licenses.sql"})
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestPurlLicensesModel_GetLicensesByPurlAndSource(t *testing.T) {
 	defer CloseDB(db)
 
 	// Load test data
-	err = loadTestSQLDataFiles(db, ctx, nil, []string{"tests/purl_licenses.sql"})
+	err = loadTestSQLDataFiles(db, ctx, []string{"tests/purl_licenses.sql"})
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}
