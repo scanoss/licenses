@@ -10,11 +10,11 @@ import (
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
+	"net/http"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/license"
 	models "scanoss.com/licenses/pkg/model"
-	"scanoss.com/licenses/pkg/protocol/rest"
 	"strings"
 )
 
@@ -194,11 +194,11 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, lic dto.LicenseRequestDTO) (pb.LicenseDetails, *Error) {
 	licenseRecord, err := lu.licenseDetailModel.GetLicenseByID(ctx, s, lic.ID)
 	if err != nil {
-		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: rest.HTTP_CODE_500, Message: err.Error(), Error: err}
+		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: http.StatusInternalServerError, Message: err.Error(), Error: err}
 	}
 	if licenseRecord.ID == 0 {
 		s.Warnf("LicenseDetail not found: %s", lic.ID)
-		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: rest.HTTP_CODE_404, Message: "LicenseDetail not found", Error: errors.New("license not found")}
+		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS, Code: http.StatusNotFound, Message: "LicenseDetail not found", Error: errors.New("license not found")}
 	}
 	s.Debugf("LicenseDetail: %v", licenseRecord)
 

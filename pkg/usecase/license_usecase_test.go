@@ -10,10 +10,10 @@ import (
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
+	"net/http"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	models "scanoss.com/licenses/pkg/model"
-	"scanoss.com/licenses/pkg/protocol/rest"
 	"testing"
 )
 
@@ -130,7 +130,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			expectedResult: pb.LicenseDetails{},
 			expectedError: &Error{
 				Status:  common.StatusCode_SUCCEEDED_WITH_WARNINGS,
-				Code:    rest.HTTP_CODE_404,
+				Code:    http.StatusNotFound,
 				Message: "LicenseDetail not found",
 				Error:   errors.New("license not found"),
 			},
@@ -154,7 +154,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			expectedResult: pb.LicenseDetails{},
 			expectedError: &Error{
 				Status:  common.StatusCode_SUCCEEDED_WITH_WARNINGS,
-				Code:    rest.HTTP_CODE_404,
+				Code:    http.StatusNotFound,
 				Message: "LicenseDetail not found",
 				Error:   errors.New("license not found"),
 			},
@@ -234,7 +234,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			expectedResult: pb.LicenseDetails{}, // Should be empty on error
 			expectedError: &Error{
 				Status:  common.StatusCode_FAILED,
-				Code:    rest.HTTP_CODE_500,
+				Code:    http.StatusInternalServerError,
 				Message: "error connecting to db",
 				Error:   errors.New("error connecting to db"),
 			},

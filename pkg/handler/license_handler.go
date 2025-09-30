@@ -3,6 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"scanoss.com/licenses/pkg/helpers"
+	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
@@ -14,7 +17,6 @@ import (
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/middleware"
-	"scanoss.com/licenses/pkg/protocol/rest"
 	"scanoss.com/licenses/pkg/usecase"
 )
 
@@ -32,12 +34,13 @@ func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseHandl
 }
 
 func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Context, gRPCStatusCode common.StatusCode,
-	httpCode string, err error) *common.StatusResponse {
-	errHTTPCode := grpc.SetTrailer(ctx, metadata.Pairs("x-http-code", httpCode))
+	httpCode int, msg string, err error) *common.StatusResponse {
+	code := strconv.Itoa(httpCode)
+	errHTTPCode := grpc.SetTrailer(ctx, metadata.Pairs("x-http-code", code))
 	if errHTTPCode != nil {
-		s.Debugf("error setting x-http-code to trailer: %v\n", err)
+		s.Debugf("error setting x-http-code to trailer: %v\n", errHTTPCode)
 	}
-	message := "Licenses Successfully retrieved"
+	message := msg
 	if err != nil {
 		message = err.Error()
 	}
@@ -53,22 +56,22 @@ func (h *LicenseHandler) GetComponentLicense(ctx context.Context, middleware mid
 	componentDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.ComponentLicenseResponse{
-			Status:    h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
+			Status:    h.getResponseStatus(s, ctx, common.StatusCode_FAILED, http.StatusBadRequest, "", err),
 			Component: &pb.ComponentLicenseInfo{},
 		}, nil
 	}
 
-	component, useCaseErr := h.licenseUseCase.GetComponentLicense(ctx, componentDTO)
-	if useCaseErr != nil {
+	componentLicenses, ucErr := h.licenseUseCase.GetComponentLicense(ctx, componentDTO)
+	if ucErr != nil {
 		return &pb.ComponentLicenseResponse{
-			Status:    h.getResponseStatus(s, ctx, useCaseErr.Status, useCaseErr.Code, useCaseErr.Error),
+			Status:    h.getResponseStatus(s, ctx, ucErr.Status, ucErr.Code, "", ucErr.Error),
 			Component: &pb.ComponentLicenseInfo{},
 		}, nil
 	}
-
+	grpcStatus, httpCode, message := helpers.DetermineStatusResponse(componentLicenses)
 	return &pb.ComponentLicenseResponse{
-		Status:    h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, nil),
-		Component: component,
+		Status:    h.getResponseStatus(s, ctx, grpcStatus, httpCode, message, nil),
+		Component: componentLicenses,
 	}, nil
 }
 
@@ -78,16 +81,22 @@ func (h *LicenseHandler) GetComponentsLicense(ctx context.Context, middleware mi
 	componentsDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.ComponentsLicenseResponse{
-			Status:     h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
+			Status:     h.getResponseStatus(s, ctx, common.StatusCode_FAILED, http.StatusBadRequest, "", err),
 			Components: []*pb.ComponentLicenseInfo{},
 		}, nil
 	}
 
-	licenses, _ := h.licenseUseCase.GetComponentsLicense(ctx, componentsDTO)
-
+	componentLicenses, ucErr := h.licenseUseCase.GetComponentsLicense(ctx, componentsDTO)
+	if ucErr != nil {
+		return &pb.ComponentsLicenseResponse{
+			Status:     h.getResponseStatus(s, ctx, ucErr.Status, ucErr.Code, "", ucErr.Error),
+			Components: []*pb.ComponentLicenseInfo{},
+		}, nil
+	}
+	grpcStatus, httpCode, message := helpers.DetermineStatusResponse(componentLicenses)
 	return &pb.ComponentsLicenseResponse{
-		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
-		Components: licenses,
+		Status:     h.getResponseStatus(s, ctx, grpcStatus, httpCode, message, nil),
+		Components: componentLicenses,
 	}, nil
 }
 
@@ -97,22 +106,22 @@ func (h *LicenseHandler) GetDetails(ctx context.Context, middleware middleware.M
 	licenseDTO, err := middleware.Process()
 	if err != nil {
 		return &pb.LicenseDetailsResponse{
-			Status:  h.getResponseStatus(s, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err),
+			Status:  h.getResponseStatus(s, ctx, common.StatusCode_FAILED, http.StatusBadRequest, "", err),
 			License: &pb.LicenseDetails{},
 		}, err
 	}
-	licenseDetail, dErr := h.licenseUseCase.GetDetails(ctx, s, licenseDTO)
+	licenseDetail, ucErr := h.licenseUseCase.GetDetails(ctx, s, licenseDTO)
 
-	if dErr != nil {
-		s.Errorf("Error getting license details: %v", dErr)
+	if ucErr != nil {
+		s.Errorf("Error getting license details: %v", ucErr)
 		return &pb.LicenseDetailsResponse{
-			Status:  h.getResponseStatus(s, ctx, dErr.Status, dErr.Code, dErr.Error),
+			Status:  h.getResponseStatus(s, ctx, ucErr.Status, ucErr.Code, "", ucErr.Error),
 			License: &pb.LicenseDetails{},
-		}, dErr.Error
+		}, nil
 	}
-
+	status, httpCode, message := helpers.DetermineStatusResponse(&licenseDetail)
 	return &pb.LicenseDetailsResponse{
-		Status:  h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, err),
+		Status:  h.getResponseStatus(s, ctx, status, httpCode, message, err),
 		License: &licenseDetail,
 	}, err
 
