@@ -5,9 +5,9 @@ import (
 	"errors"
 	"github.com/jmoiron/sqlx"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
+	"net/http"
 	"os"
 	models "scanoss.com/licenses/pkg/model"
-	"scanoss.com/licenses/pkg/protocol/rest"
 	"testing"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
@@ -63,7 +63,7 @@ func TestLicenseHandler_getResponseStatus(t *testing.T) {
 
 	t.Run("success case", func(t *testing.T) {
 		ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{}))
-		status := handler.getResponseStatus(logger, ctx, common.StatusCode_SUCCESS, rest.HTTP_CODE_200, nil)
+		status := handler.getResponseStatus(logger, ctx, common.StatusCode_SUCCESS, http.StatusOK, "Licenses Successfully retrieved", nil)
 
 		if status.Status != common.StatusCode_SUCCESS {
 			t.Errorf("Expected status SUCCESS, got %v", status.Status)
@@ -77,7 +77,7 @@ func TestLicenseHandler_getResponseStatus(t *testing.T) {
 	t.Run("error case", func(t *testing.T) {
 		ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{}))
 		err := errors.New("test error")
-		status := handler.getResponseStatus(logger, ctx, common.StatusCode_FAILED, rest.HTTP_CODE_400, err)
+		status := handler.getResponseStatus(logger, ctx, common.StatusCode_FAILED, http.StatusBadRequest, "", err)
 
 		if status.Status != common.StatusCode_FAILED {
 			t.Errorf("Expected status FAILED, got %v", status.Status)
