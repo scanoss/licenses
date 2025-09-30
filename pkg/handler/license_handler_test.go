@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"net/http"
@@ -95,27 +96,19 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
-	content, err := os.ReadFile("../model/tests/licenses.sql")
-	if err != nil {
-		t.Fatalf("Error reading SQL file: %v", err)
-	}
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	err = models.LoadTestSQLData(db, ctx)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
 	}
 	defer models.CloseDB(db)
-	_, err = db.Exec(string(content))
-	if err != nil {
-		t.Fatalf("Error reading SQL file: %v", err)
-	}
 	handler := NewLicenseHandler(config, db)
-	ctx := ctxzap.ToContext(context.Background(), zlog.L)
-
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockMiddleware{
 			processFunc: func() ([]dto.ComponentRequestDTO, error) {
 				return []dto.ComponentRequestDTO{
-					{Purl: "pkg:npm/test", Requirement: "1.0.0"},
+					{Purl: "pkg:gitlab/gpl/project", Requirement: "1.0.0"},
 				}, nil
 			},
 		}
@@ -135,7 +128,6 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 		}
 
 	})
-
 }
 
 func TestLicenseHandler_GetComponentLicense(t *testing.T) {
@@ -144,27 +136,21 @@ func TestLicenseHandler_GetComponentLicense(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
-	content, err := os.ReadFile("../model/tests/licenses.sql")
-	if err != nil {
-		t.Fatalf("Error reading SQL file: %v", err)
-	}
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	err = models.LoadTestSQLData(db, ctx)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
 	}
 	defer models.CloseDB(db)
-	_, err = db.Exec(string(content))
-	if err != nil {
-		t.Fatalf("Error reading SQL file: %v", err)
-	}
+
 	handler := NewLicenseHandler(config, db)
-	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockComponentMiddleware{
 			processFunc: func() (dto.ComponentRequestDTO, error) {
 				return dto.ComponentRequestDTO{
-					Purl:        "pkg:npm/test",
+					Purl:        "pkg:gitlab/gpl/project",
 					Requirement: "1.0.0",
 				}, nil
 			},

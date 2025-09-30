@@ -19,4 +19,7 @@ INSERT INTO purl_licenses (purl, version, date, source_id, license_id) VALUES
 ('pkg:maven/org.apache.commons/commons-lang3', '3.12.0', '2023-01-03', 3, 850),
 ('pkg:pypi/requests', '2.28.1', '2023-01-04', 1, 552),
 ('pkg:pypi/numpy', '1.24.0', '2023-01-05', 1, 109),
-('pkg:gem/rails', '7.0.4', '2023-01-06', 1, 5614);
+('pkg:gem/rails', '7.0.4', '2023-01-06', 1, 5614),
+('pkg:gitlab/gpl/project', '1.0.0', '2023-01-06', 0, 2815),
+('pkg:gitlab/gpl/project', '1.0.0', '2023-01-06', 3, 2815),
+('pkg:gitlab/gpl/project', '1.0.0', '2023-01-06', 6, 2815);

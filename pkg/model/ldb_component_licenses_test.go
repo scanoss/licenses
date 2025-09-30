@@ -38,7 +38,7 @@ func TestGetLicensesByPurlMD5_Success(t *testing.T) {
 	defer CloseConn(conn)
 
 	// Load test data
-	err = loadTestSQLDataFiles(db, ctx, conn, []string{"tests/licenses.sql", "tests/ldb_component_licenses.sql"})
+	err = loadTestSQLDataFiles(db, ctx, []string{"tests/licenses.sql", "tests/ldb_component_licenses.sql"})
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestGetLicensesByPurlMD5_EmptyInput(t *testing.T) {
 	defer CloseConn(conn)
 
 	// Load test data
-	err = loadTestSQLDataFiles(db, ctx, conn, []string{"tests/licenses.sql", "tests/ldb_component_licenses.sql"})
+	err = loadTestSQLDataFiles(db, ctx, []string{"tests/licenses.sql", "tests/ldb_component_licenses.sql"})
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}

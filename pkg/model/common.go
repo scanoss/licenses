@@ -31,16 +31,14 @@ import (
 )
 
 // loadSQLData Load the specified SQL files into the supplied DB.
-func loadSQLData(db *sqlx.DB, ctx context.Context, conn *sqlx.Conn, filename string) error {
+func loadSQLData(db *sqlx.DB, ctx context.Context, filename string) error {
 	fmt.Printf("Loading test data file: %v\n", filename)
 	file, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
-	if conn != nil {
-		_, err = conn.ExecContext(ctx, string(file))
-	} else {
-		_, err = db.Exec(string(file))
+	if db != nil {
+		_, err = db.ExecContext(ctx, string(file))
 	}
 	if err != nil {
 		return err
@@ -49,15 +47,16 @@ func loadSQLData(db *sqlx.DB, ctx context.Context, conn *sqlx.Conn, filename str
 }
 
 // LoadTestSQLData loads all the required test SQL files.
-func LoadTestSQLData(db *sqlx.DB, ctx context.Context, conn *sqlx.Conn) error {
-	files := []string{"../model/tests/licenses.sql", "../model/tests/purl_licenses.sql"}
-	return loadTestSQLDataFiles(db, ctx, conn, files)
+func LoadTestSQLData(db *sqlx.DB, ctx context.Context) error {
+	files := []string{"../model/tests/licenses.sql", "../model/tests/purl_licenses.sql", "../model/tests/all_urls.sql",
+		"../model/tests/mines.sql", "../model/tests/versions.sql"}
+	return loadTestSQLDataFiles(db, ctx, files)
 }
 
 // loadTestSQLDataFiles loads a list of test SQL files.
-func loadTestSQLDataFiles(db *sqlx.DB, ctx context.Context, conn *sqlx.Conn, files []string) error {
+func loadTestSQLDataFiles(db *sqlx.DB, ctx context.Context, files []string) error {
 	for _, file := range files {
-		err := loadSQLData(db, ctx, conn, file)
+		err := loadSQLData(db, ctx, file)
 		if err != nil {
 			return err
 		}
