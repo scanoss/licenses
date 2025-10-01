@@ -98,6 +98,9 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 	config := &myconfig.ServerConfig{}
 	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatal(fmt.Sprintf("Error connecting to DB %v", err))
+	}
 	err = models.LoadTestSQLData(db, ctx)
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))

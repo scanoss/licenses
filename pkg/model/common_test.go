@@ -31,6 +31,7 @@ func TestDbLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
+	defer zlog.SyncZap()
 	db, err := sqlx.Connect("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
