@@ -3,7 +3,7 @@ module scanoss.com/licenses
 go 1.24.1
 
 require (
-	github.com/github/go-spdx/v2 v2.3.3
+	github.com/github/go-spdx/v2 v2.3.4
 	github.com/golobby/config/v3 v3.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/jmoiron/sqlx v1.4.0
