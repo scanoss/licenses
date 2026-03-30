@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	"github.com/scanoss/go-component-helper/componenthelper"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"net/http"
 	"os"
@@ -20,18 +21,18 @@ import (
 )
 
 type mockMiddleware struct {
-	processFunc func() ([]dto.ComponentRequestDTO, error)
+	processFunc func() ([]componenthelper.ComponentDTO, error)
 }
 
-func (m *mockMiddleware) Process() ([]dto.ComponentRequestDTO, error) {
+func (m *mockMiddleware) Process() ([]componenthelper.ComponentDTO, error) {
 	return m.processFunc()
 }
 
 type mockComponentMiddleware struct {
-	processFunc func() (dto.ComponentRequestDTO, error)
+	processFunc func() (componenthelper.ComponentDTO, error)
 }
 
-func (m *mockComponentMiddleware) Process() (dto.ComponentRequestDTO, error) {
+func (m *mockComponentMiddleware) Process() (componenthelper.ComponentDTO, error) {
 	return m.processFunc()
 }
 
@@ -109,8 +110,8 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 	handler := NewLicenseHandler(config, db)
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockMiddleware{
-			processFunc: func() ([]dto.ComponentRequestDTO, error) {
-				return []dto.ComponentRequestDTO{
+			processFunc: func() ([]componenthelper.ComponentDTO, error) {
+				return []componenthelper.ComponentDTO{
 					{Purl: "pkg:gitlab/gpl/project", Requirement: "1.0.0"},
 				}, nil
 			},
@@ -151,8 +152,8 @@ func TestLicenseHandler_GetComponentLicense(t *testing.T) {
 
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockComponentMiddleware{
-			processFunc: func() (dto.ComponentRequestDTO, error) {
-				return dto.ComponentRequestDTO{
+			processFunc: func() (componenthelper.ComponentDTO, error) {
+				return componenthelper.ComponentDTO{
 					Purl:        "pkg:gitlab/gpl/project",
 					Requirement: "1.0.0",
 				}, nil
@@ -180,8 +181,8 @@ func TestLicenseHandler_GetComponentLicense(t *testing.T) {
 
 	t.Run("middleware processing error", func(t *testing.T) {
 		mockMW := &mockComponentMiddleware{
-			processFunc: func() (dto.ComponentRequestDTO, error) {
-				return dto.ComponentRequestDTO{}, errors.New("middleware error")
+			processFunc: func() (componenthelper.ComponentDTO, error) {
+				return componenthelper.ComponentDTO{}, errors.New("middleware error")
 			},
 		}
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"github.com/scanoss/go-component-helper/componenthelper"
 	"github.com/scanoss/papi/api/commonv2"
-	"scanoss.com/licenses/pkg/dto"
 )
 
 type ComponentMiddleware[T any] struct {
@@ -13,20 +13,20 @@ type ComponentMiddleware[T any] struct {
 	MiddlewareBase
 }
 
-func NewComponentRequestMiddleware(req *commonv2.ComponentRequest, ctx context.Context) Middleware[dto.ComponentRequestDTO] {
-	return &ComponentMiddleware[dto.ComponentRequestDTO]{
+func NewComponentRequestMiddleware(req *commonv2.ComponentRequest, ctx context.Context) Middleware[componenthelper.ComponentDTO] {
+	return &ComponentMiddleware[componenthelper.ComponentDTO]{
 		MiddlewareBase: MiddlewareBase{s: ctxzap.Extract(ctx).Sugar()},
 		req:            req,
 	}
 }
 
-func (m *ComponentMiddleware[TOutput]) Process() (dto.ComponentRequestDTO, error) {
+func (m *ComponentMiddleware[TOutput]) Process() (componenthelper.ComponentDTO, error) {
 	if len(m.req.Purl) == 0 {
 		m.s.Warn("no purl request data supplied to decorate. Ignoring request.")
-		return dto.ComponentRequestDTO{}, errors.New("no purl request data supplied to decorate")
+		return componenthelper.ComponentDTO{}, errors.New("no purl request data supplied to decorate")
 	}
 
-	var componentDTO dto.ComponentRequestDTO
+	var componentDTO componenthelper.ComponentDTO
 	componentDTO.Purl = m.req.Purl
 	componentDTO.Requirement = m.req.Requirement
 

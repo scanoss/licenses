@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Upcoming changes...
+- Added `go-component-helper` dependency for centralized component version resolution
+- Added per-component `error_message` and `error_code` fields in license responses for failed components
+
+### Changed
+- Replaced local `dto.ComponentRequestDTO` with `componenthelper.ComponentDTO` from `go-component-helper`
+- Replaced per-component version resolution with `componenthelper.GetComponentsVersion` using worker pool
+- Removed `groupComponentsByPurl` deduplication logic from batch middleware
+
+### Updated
+- Updated `go-grpc-helper` to  v0.13.0
+- Updated `go-models` to v0.7.0
+- Updated `grpc` to v1.79.1
 
 ## [0.0.7] - 2025-10-01
 ### Added
