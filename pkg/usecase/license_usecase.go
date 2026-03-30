@@ -3,10 +3,13 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
+	"github.com/scanoss/go-component-helper/componenthelper"
+	comphelputils "github.com/scanoss/go-component-helper/componenthelper/utils"
+	"github.com/scanoss/go-grpc-helper/pkg/grpc/domain"
 	"github.com/scanoss/go-models/pkg/scanoss"
-	"github.com/scanoss/go-models/pkg/types"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
@@ -49,9 +52,9 @@ func NewLicenseUseCaseWithLicenseModel(config *myconfig.ServerConfig, licenseMod
 }
 
 // GetComponentLicense
-func (lu LicenseUseCase) GetComponentLicense(ctx context.Context, crs dto.ComponentRequestDTO) (*pb.ComponentLicenseInfo, *Error) {
+func (lu LicenseUseCase) GetComponentLicense(ctx context.Context, dto componenthelper.ComponentDTO) (*pb.ComponentLicenseInfo, *Error) {
 	// Reuse existing GetComponentsLicense logic with single-item array
-	results, err := lu.GetComponentsLicense(ctx, []dto.ComponentRequestDTO{crs})
+	results, err := lu.GetComponentsLicense(ctx, []componenthelper.ComponentDTO{dto})
 	if err != nil {
 		return nil, err
 	}
@@ -62,56 +65,68 @@ func (lu LicenseUseCase) GetComponentLicense(ctx context.Context, crs dto.Compon
 }
 
 // GetComponentsLicense
-func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.ComponentRequestDTO) ([]*pb.ComponentLicenseInfo, *Error) {
+func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs []componenthelper.ComponentDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	var clir []*pb.ComponentLicenseInfo
 
-	for _, cr := range crs {
+	processedComponents := componenthelper.GetComponentsVersion(componenthelper.ComponentVersionCfg{
+		MaxWorkers: 5,
+		DB:         lu.db,
+		Ctx:        ctx,
+		S:          s,
+		Input:      componentDTOs,
+	})
 
-		// Prepare the response so the caller can track each component individually
-		// Determine which PURL to use, original format if it was split from purl@version
-		purl := cr.Purl
-		if cr.OriginalPurl != "" {
-			purl = cr.OriginalPurl
-		}
-
-		// Determine requirement, empty for split PURLs
-		requirement := cr.Requirement
-		if cr.WasSplit {
-			requirement = ""
-		}
-
-		c, err := lu.sc.Component.GetComponent(ctx, types.ComponentRequest{
-			Purl:        cr.Purl,
-			Requirement: cr.Requirement,
-		})
-
-		componentInfo := &pb.ComponentLicenseInfo{
-			Purl:        purl,
-			Requirement: requirement,
-			Version:     c.Version,
-		}
-
-		clir = append(clir, componentInfo)
-
-		if err != nil {
-			s.Warnf("error when resolving component version. %w", err)
+	var validComponents []componenthelper.Component
+	for _, c := range processedComponents {
+		if c.Status.StatusCode != domain.Success && c.Status.StatusCode != domain.VersionNotFound {
+			clir = append(clir, &pb.ComponentLicenseInfo{
+				Purl:         c.OriginalPurl,
+				Requirement:  c.OriginalRequirement,
+				Version:      c.Version,
+				ComponentUrl: c.URL,
+			})
 			continue
 		}
+		validComponents = append(validComponents, c)
+	}
 
-		purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, c.Purl, c.Version, []int16{
+	for _, c := range validComponents {
+
+		componentInfo := &pb.ComponentLicenseInfo{
+			Purl:         c.OriginalPurl,
+			Requirement:  c.OriginalRequirement,
+			ComponentUrl: c.URL,
+		}
+		clir = append(clir, componentInfo)
+
+		version := c.Version
+		if c.Version == "" && c.Requirement != "" && len(c.Versions) > 0 {
+			version = comphelputils.FindNearestVersion(c.Requirement, c.Versions)
+			msg := fmt.Sprintf("Version not found, using nearest version %s", version)
+			componentInfo.ErrorMessage = &msg
+			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
+		}
+		componentInfo.Version = version
+
+		purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, c.Purl, version, []int16{
 			license.SourceComponentDeclared,
 			license.SourceSPDXAttributionFiles,
 			license.SourceInternalAttributionFiles})
 
 		if err != nil {
 			s.Warnf("error when querying GetVersionedAndUnversionedLicenses() for purl=%s version=%s: %v", c.Purl, c.Version, err)
+			s.Warnf("error when querying GetVersionedAndUnversionedLicenses() for purl=%s version=%s: %v", c.Purl, version, err)
+			message := fmt.Sprintf("License info not found for %s", c.Purl)
+			componentInfo.ErrorMessage = &message
+			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.ComponentWithoutInfo)
+			clir = append(clir, componentInfo)
 			continue
 		}
 
 		if len(purlLicenses) == 0 {
-			s.Info("no purlLicenses data found for purl=%s version=%s. Trying with unversioned purl", c.Purl, c.Version)
+			s.Info("no purlLicenses data found for purl=%s version=%s. Trying with unversioned purl", c.Purl, version)
 			purlLicenses, err = lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, c.Purl, []int16{
 				license.SourceComponentDeclared,
 				license.SourceSPDXAttributionFiles,
@@ -119,6 +134,11 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 
 			if len(purlLicenses) == 0 {
 				s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, c.Version)
+				s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, version)
+				message := fmt.Sprintf("License info not found for %s", c.Purl)
+				componentInfo.ErrorMessage = &message
+				componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.ComponentWithoutInfo)
+				clir = append(clir, componentInfo)
 				continue
 			}
 
@@ -132,11 +152,15 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, crs []dto.Com
 		//Retrieve all the uniques licenses ids
 		dedupLicensesIDs := license.ExtractLicenseIDsFromPurlLicenses(purlLicenses)
 		if len(dedupLicensesIDs) == 0 {
-			s.Warnf("no license data available for purl=%s version=%s", c.Purl, c.Version)
+			s.Warnf("no license data available for purl=%s version=%s", c.Purl, version)
+			message := fmt.Sprintf("License info not found for %s", c.Purl)
+			componentInfo.ErrorMessage = &message
+			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.ComponentWithoutInfo)
+			clir = append(clir, componentInfo)
 			continue
 		}
 
-		s.Debugf("Found %d unique license_ids from all sources for purl=%s version=%s", len(dedupLicensesIDs), c.Purl, c.Version)
+		s.Debugf("Found %d unique license_ids from all sources for purl=%s version=%s", len(dedupLicensesIDs), c.Purl, version)
 
 		var finalLicenses []*pb.LicenseInfo
 

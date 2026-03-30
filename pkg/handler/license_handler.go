@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"github.com/scanoss/go-component-helper/componenthelper"
 	"net/http"
 	"scanoss.com/licenses/pkg/helpers"
 	"strconv"
@@ -50,7 +51,7 @@ func (h *LicenseHandler) getResponseStatus(s *zap.SugaredLogger, ctx context.Con
 	return &statusResp
 }
 
-func (h *LicenseHandler) GetComponentLicense(ctx context.Context, middleware middleware.Middleware[dto.ComponentRequestDTO]) (*pb.ComponentLicenseResponse, error) {
+func (h *LicenseHandler) GetComponentLicense(ctx context.Context, middleware middleware.Middleware[componenthelper.ComponentDTO]) (*pb.ComponentLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	componentDTO, err := middleware.Process()
@@ -75,7 +76,7 @@ func (h *LicenseHandler) GetComponentLicense(ctx context.Context, middleware mid
 	}, nil
 }
 
-func (h *LicenseHandler) GetComponentsLicense(ctx context.Context, middleware middleware.Middleware[[]dto.ComponentRequestDTO]) (*pb.ComponentsLicenseResponse, error) {
+func (h *LicenseHandler) GetComponentsLicense(ctx context.Context, middleware middleware.Middleware[[]componenthelper.ComponentDTO]) (*pb.ComponentsLicenseResponse, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 
 	componentsDTO, err := middleware.Process()
