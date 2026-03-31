@@ -69,9 +69,8 @@ func (h *LicenseHandler) GetComponentLicense(ctx context.Context, middleware mid
 			Component: &pb.ComponentLicenseInfo{},
 		}, nil
 	}
-	grpcStatus, httpCode, message := helpers.DetermineStatusResponse(componentLicenses)
 	return &pb.ComponentLicenseResponse{
-		Status:    h.getResponseStatus(s, ctx, grpcStatus, httpCode, message, nil),
+		Status:    h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, http.StatusOK, "License retrieved successfully", nil),
 		Component: componentLicenses,
 	}, nil
 }
@@ -94,9 +93,8 @@ func (h *LicenseHandler) GetComponentsLicense(ctx context.Context, middleware mi
 			Components: []*pb.ComponentLicenseInfo{},
 		}, nil
 	}
-	grpcStatus, httpCode, message := helpers.DetermineStatusResponse(componentLicenses)
 	return &pb.ComponentsLicenseResponse{
-		Status:     h.getResponseStatus(s, ctx, grpcStatus, httpCode, message, nil),
+		Status:     h.getResponseStatus(s, ctx, common.StatusCode_SUCCESS, http.StatusOK, "Licenses retrieved successfully", nil),
 		Components: componentLicenses,
 	}, nil
 }

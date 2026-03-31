@@ -86,6 +86,8 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 				Requirement:  c.OriginalRequirement,
 				Version:      c.Version,
 				ComponentUrl: c.URL,
+				ErrorMessage: &c.Status.Message,
+				ErrorCode:    domain.StatusCodeToErrorCode(c.Status.StatusCode),
 			})
 			continue
 		}
@@ -132,6 +134,15 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 				license.SourceSPDXAttributionFiles,
 				license.SourceInternalAttributionFiles})
 
+			if err != nil {
+				s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", c.Purl, err)
+				message := fmt.Sprintf("License info not found for %s", c.Purl)
+				componentInfo.ErrorMessage = &message
+				componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.ComponentWithoutInfo)
+				clir = append(clir, componentInfo)
+				continue
+			}
+
 			if len(purlLicenses) == 0 {
 				s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, c.Version)
 				s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, version)
@@ -141,12 +152,6 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 				clir = append(clir, componentInfo)
 				continue
 			}
-
-			if err != nil {
-				s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", c.Purl, err)
-				continue
-			}
-
 		}
 
 		//Retrieve all the uniques licenses ids
@@ -195,6 +200,10 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 		// If no licenses could be processed, log and continue
 		if len(finalLicenses) == 0 {
 			s.Warnf("no valid licenses found after processing %d license IDs for purl=%s version=%s", len(dedupLicensesIDs), c.Purl, c.Version)
+			message := fmt.Sprintf("License info not found for %s", c.Purl)
+			componentInfo.ErrorMessage = &message
+			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.ComponentWithoutInfo)
+			clir = append(clir, componentInfo)
 			continue
 		}
 
@@ -208,6 +217,7 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 
 		componentInfo.Statement = statement
 		componentInfo.Licenses = finalLicenses
+		clir = append(clir, componentInfo)
 
 	}
 
