@@ -207,6 +207,181 @@ func TestLicenseHandler_GetComponentLicense(t *testing.T) {
 
 }
 
+func TestLicenseHandler_GetComponentsLicense_ResponseStatus(t *testing.T) {
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
+	config := &myconfig.ServerConfig{}
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
+	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatal(fmt.Sprintf("Error connecting to DB %v", err))
+	}
+	err = models.LoadTestSQLData(db, ctx)
+	if err != nil {
+		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
+	}
+	defer models.CloseDB(db)
+	handler := NewLicenseHandler(config, db)
+
+	tests := []struct {
+		name             string
+		component        componenthelper.ComponentDTO
+		expectedStatus   common.StatusCode
+		expectErrMessage bool
+		expectErrCode    bool
+	}{
+		{
+			name:             "unknown component returns error_message and error_code",
+			component:        componenthelper.ComponentDTO{Purl: "pkg:npm/unknown/nonexistent-package", Requirement: "1.0.0"},
+			expectedStatus:   common.StatusCode_SUCCESS,
+			expectErrMessage: true,
+			expectErrCode:    true,
+		},
+		{
+			name:             "invalid purl returns error_code",
+			component:        componenthelper.ComponentDTO{Purl: "not-a-valid-purl", Requirement: ""},
+			expectedStatus:   common.StatusCode_SUCCESS,
+			expectErrMessage: true,
+			expectErrCode:    true,
+		},
+		{
+			name:             "valid component has no error fields",
+			component:        componenthelper.ComponentDTO{Purl: "pkg:gitlab/gpl/project", Requirement: "1.0.0"},
+			expectedStatus:   common.StatusCode_SUCCESS,
+			expectErrMessage: false,
+			expectErrCode:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockMW := &mockMiddleware{
+				processFunc: func() ([]componenthelper.ComponentDTO, error) {
+					return []componenthelper.ComponentDTO{tt.component}, nil
+				},
+			}
+
+			response, err := handler.GetComponentsLicense(ctx, mockMW)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+			if response == nil {
+				t.Fatal("Expected response, got nil")
+			}
+			if response.Status.Status != tt.expectedStatus {
+				t.Errorf("Expected status %v, got %v", tt.expectedStatus, response.Status.Status)
+			}
+			if len(response.Components) != 1 {
+				t.Fatalf("Expected 1 component, got %d", len(response.Components))
+			}
+
+			comp := response.Components[0]
+			if comp.Purl != tt.component.Purl {
+				t.Errorf("Expected purl %s, got %s", tt.component.Purl, comp.Purl)
+			}
+			if tt.expectErrMessage && comp.ErrorMessage == nil {
+				t.Errorf("Component %s: expected error_message to be set", comp.Purl)
+			}
+			if !tt.expectErrMessage && comp.ErrorMessage != nil {
+				t.Errorf("Component %s: expected no error_message, got %q", comp.Purl, *comp.ErrorMessage)
+			}
+			if tt.expectErrCode && comp.ErrorCode == nil {
+				t.Errorf("Component %s: expected error_code to be set", comp.Purl)
+			}
+			if !tt.expectErrCode && comp.ErrorCode != nil {
+				t.Errorf("Component %s: expected no error_code, got %v", comp.Purl, *comp.ErrorCode)
+			}
+		})
+	}
+}
+
+func TestLicenseHandler_GetComponentLicense_ResponseStatus(t *testing.T) {
+	err := zlog.NewSugaredDevLogger()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
+	config := &myconfig.ServerConfig{}
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
+	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatal(fmt.Sprintf("Error connecting to DB %v", err))
+	}
+	err = models.LoadTestSQLData(db, ctx)
+	if err != nil {
+		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
+	}
+	defer models.CloseDB(db)
+	handler := NewLicenseHandler(config, db)
+
+	tests := []struct {
+		name             string
+		component        componenthelper.ComponentDTO
+		expectedStatus   common.StatusCode
+		expectErrMessage bool
+		expectErrCode    bool
+	}{
+		{
+			name:             "unknown component returns error fields",
+			component:        componenthelper.ComponentDTO{Purl: "pkg:npm/unknown/nonexistent-package", Requirement: "1.0.0"},
+			expectedStatus:   common.StatusCode_SUCCESS,
+			expectErrMessage: true,
+			expectErrCode:    true,
+		},
+		{
+			name:             "invalid purl returns error fields",
+			component:        componenthelper.ComponentDTO{Purl: "not-a-valid-purl"},
+			expectedStatus:   common.StatusCode_SUCCESS,
+			expectErrMessage: true,
+			expectErrCode:    true,
+		},
+		{
+			name:             "valid component has no error fields",
+			component:        componenthelper.ComponentDTO{Purl: "pkg:gitlab/gpl/project", Requirement: "1.0.0"},
+			expectedStatus:   common.StatusCode_SUCCESS,
+			expectErrMessage: false,
+			expectErrCode:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockMW := &mockComponentMiddleware{
+				processFunc: func() (componenthelper.ComponentDTO, error) {
+					return tt.component, nil
+				},
+			}
+
+			response, err := handler.GetComponentLicense(ctx, mockMW)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+			if response == nil {
+				t.Fatal("Expected response, got nil")
+			}
+			if response.Status.Status != tt.expectedStatus {
+				t.Errorf("Expected status %v, got %v", tt.expectedStatus, response.Status.Status)
+			}
+			if response.Component.Purl != tt.component.Purl {
+				t.Errorf("Expected purl %s, got %s", tt.component.Purl, response.Component.Purl)
+			}
+			if tt.expectErrMessage && response.Component.ErrorMessage == nil {
+				t.Error("Expected error_message to be set")
+			}
+			if !tt.expectErrMessage && response.Component.ErrorMessage != nil {
+				t.Errorf("Expected no error_message, got %q", *response.Component.ErrorMessage)
+			}
+			if tt.expectErrCode && response.Component.ErrorCode == nil {
+				t.Error("Expected error_code to be set")
+			}
+			if !tt.expectErrCode && response.Component.ErrorCode != nil {
+				t.Errorf("Expected no error_code, got %v", *response.Component.ErrorCode)
+			}
+		})
+	}
+}
+
 func TestLicenseHandler_GetDetails(t *testing.T) {
 	err := zlog.NewSugaredDevLogger()
 	if err != nil {
