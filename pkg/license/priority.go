@@ -10,6 +10,7 @@ const (
 	SourceInternalAttributionFiles = int16(3)
 	SourceSPDXAttributionFiles     = int16(6)
 	SourceScancodeAttributionFiles = int16(5)
+	SourceAttributionFile          = int16(31)
 )
 
 // ExtractLicenseIDsFromPurlLicenses extracts all unique SPDX licenses from all license_ids.

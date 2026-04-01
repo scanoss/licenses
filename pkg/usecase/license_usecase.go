@@ -175,6 +175,7 @@ func (lu LicenseUseCase) fetchPurlLicenses(ctx context.Context, s *zap.SugaredLo
 	c componenthelper.Component, version string) []models.PurlLicense {
 	sources := []int16{
 		license.SourceComponentDeclared,
+		license.SourceAttributionFile,
 		license.SourceSPDXAttributionFiles,
 		license.SourceInternalAttributionFiles,
 	}
