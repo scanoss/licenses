@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added unit tests for SPDX license cache
 
 ### Changed
+- Added `full_name`, `url`, and `is_spdx_approved` fields to SPDX license response using cached license details
 - Replaced local `dto.ComponentRequestDTO` with `componenthelper.ComponentDTO` from `go-component-helper`
 - Replaced per-component version resolution with `componenthelper.GetComponentsVersion` using worker pool
 - Removed `groupComponentsByPurl` deduplication logic from batch middleware
