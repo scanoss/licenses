@@ -71,9 +71,6 @@ func (lu LicenseUseCase) GetComponentLicense(ctx context.Context, dto componenth
 // GetComponentsLicense retrieves license info for multiple components.
 func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs []componenthelper.ComponentDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
-
-	var clir []*pb.ComponentLicenseInfo
-
 	processedComponents := componenthelper.GetComponentsVersion(componenthelper.ComponentVersionCfg{
 		MaxWorkers: 5,
 		DB:         lu.db,
@@ -81,27 +78,22 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 		S:          s,
 		Input:      componentDTOs,
 	})
-
-	var validComponents []componenthelper.Component
+	clir := make([]*pb.ComponentLicenseInfo, 0, len(processedComponents))
 	for _, c := range processedComponents {
 		if c.Status.StatusCode != domain.Success && c.Status.StatusCode != domain.VersionNotFound {
+			msg := c.Status.Message
 			clir = append(clir, &pb.ComponentLicenseInfo{
 				Purl:         c.OriginalPurl,
 				Requirement:  c.OriginalRequirement,
 				Version:      c.Version,
 				ComponentUrl: c.URL,
-				ErrorMessage: &c.Status.Message,
+				ErrorMessage: &msg,
 				ErrorCode:    domain.StatusCodeToErrorCode(c.Status.StatusCode),
 			})
 			continue
 		}
-		validComponents = append(validComponents, c)
-	}
-
-	for _, c := range validComponents {
 		clir = append(clir, lu.processComponentLicenses(ctx, s, c))
 	}
-
 	return clir, nil
 }
 
@@ -114,15 +106,22 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 	}
 
 	version := c.Version
+	// Fallback: when GetComponentsVersion did not resolve an exact version (c.Version is empty)
+	// but a requirement was provided (e.g. ">=5.0.0") and known versions exist, attempt to find
+	// the nearest version that satisfies the requirement. This covers cases where no version
+	// exactly matches the requirement range (e.g. requirement ">=5.0.0" with latest version "2.0.0").
 	if c.Version == "" && c.Requirement != "" && len(c.Versions) > 0 {
+		//TODO: Add find nearest version as Component receiver. i.e c.FindNearestVersion()
 		version = comphelputils.FindNearestVersion(c.Requirement, c.Versions)
 		if version == "" {
-			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(c.Status.StatusCode)
-			componentInfo.ErrorMessage = &c.Status.Message
+			msg := fmt.Sprintf("Version not found for requirement %s", c.Requirement)
+			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
+			componentInfo.ErrorMessage = &msg
 			return componentInfo
 		}
 		msg := fmt.Sprintf("Version not found, using nearest version %s", version)
 		componentInfo.ErrorMessage = &msg
+		// TODO: Add new status RequirementNotMet
 		componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
 	}
 	componentInfo.Version = version
