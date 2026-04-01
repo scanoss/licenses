@@ -104,7 +104,6 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 			Requirement:  c.OriginalRequirement,
 			ComponentUrl: c.URL,
 		}
-		clir = append(clir, componentInfo)
 
 		version := c.Version
 		if c.Version == "" && c.Requirement != "" && len(c.Versions) > 0 {
@@ -192,9 +191,21 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 			for _, l := range spdx {
 				if !allSpdxLicenses[l] {
 					allSpdxLicenses[l] = true
+					fullName := ""
+					url := ""
+					isSpdxApproved := false
+					if lu.spdxLicenseCache != nil && licenseRecord.IsSpdx {
+						if detail, ok := lu.spdxLicenseCache.GetLicenseByID(l); ok {
+							fullName = detail.Name
+							url = detail.DetailsURL
+						}
+						isSpdxApproved = true
+					}
 					finalLicenses = append(finalLicenses, &pb.LicenseInfo{
-						Id:       l,
-						FullName: "", //TODO: add model for spdx_license table
+						Id:             l,
+						FullName:       fullName,
+						Url:            url,
+						IsSpdxApproved: isSpdxApproved,
 					})
 				}
 			}
