@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added per-component `error_message` and `error_code` fields in license responses for failed components
 - Added SPDX license cache with configurable refresh interval (`CACHE_SPDX_REFRESH_HOURS`, default 24h)
 - Added unit tests for SPDX license cache
+- Added `AttributionFile` license source
 
 ### Changed
 - Upgraded golangci-lint configuration to v2
