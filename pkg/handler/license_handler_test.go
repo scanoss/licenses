@@ -46,7 +46,7 @@ func (m *mockLicenseDetailsMiddleware) Process() (dto.LicenseRequestDTO, error) 
 
 func TestNewLicenseHandler(t *testing.T) {
 	config := &myconfig.ServerConfig{}
-	handler := NewLicenseHandler(config, &sqlx.DB{})
+	handler := NewLicenseHandler(config, &sqlx.DB{}, nil)
 
 	if handler == nil {
 		t.Fatal("Expected handler to be created, got nil")
@@ -59,7 +59,7 @@ func TestNewLicenseHandler(t *testing.T) {
 
 func TestLicenseHandler_getResponseStatus(t *testing.T) {
 	config := &myconfig.ServerConfig{}
-	handler := NewLicenseHandler(config, &sqlx.DB{})
+	handler := NewLicenseHandler(config, &sqlx.DB{}, nil)
 	ctx := context.Background()
 	logger := zap.NewNop().Sugar()
 
@@ -107,7 +107,7 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
 	}
 	defer models.CloseDB(db)
-	handler := NewLicenseHandler(config, db)
+	handler := NewLicenseHandler(config, db, nil)
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockMiddleware{
 			processFunc: func() ([]componenthelper.ComponentDTO, error) {
@@ -148,7 +148,7 @@ func TestLicenseHandler_GetComponentLicense(t *testing.T) {
 	}
 	defer models.CloseDB(db)
 
-	handler := NewLicenseHandler(config, db)
+	handler := NewLicenseHandler(config, db, nil)
 
 	t.Run("successful middleware processing", func(t *testing.T) {
 		mockMW := &mockComponentMiddleware{
@@ -223,7 +223,7 @@ func TestLicenseHandler_GetComponentsLicense_ResponseStatus(t *testing.T) {
 		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
 	}
 	defer models.CloseDB(db)
-	handler := NewLicenseHandler(config, db)
+	handler := NewLicenseHandler(config, db, nil)
 
 	tests := []struct {
 		name             string
@@ -313,7 +313,7 @@ func TestLicenseHandler_GetComponentLicense_ResponseStatus(t *testing.T) {
 		t.Fatal(fmt.Sprintf("Error loading test SQL data %v", err))
 	}
 	defer models.CloseDB(db)
-	handler := NewLicenseHandler(config, db)
+	handler := NewLicenseHandler(config, db, nil)
 
 	tests := []struct {
 		name             string
@@ -401,7 +401,7 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error reading SQL file: %v", err)
 	}
-	handler := NewLicenseHandler(config, db)
+	handler := NewLicenseHandler(config, db, nil)
 	ctx := ctxzap.ToContext(context.Background(), zap.NewNop())
 
 	t.Run("middleware processing error", func(t *testing.T) {

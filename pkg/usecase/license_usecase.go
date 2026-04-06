@@ -14,6 +14,7 @@ import (
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
 	"net/http"
+	"scanoss.com/licenses/pkg/cache"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/license"
@@ -27,16 +28,18 @@ type LicenseUseCase struct {
 	purlLicenseModel   *models.PurlLicensesModel
 	licenseDetailModel models.LicenseDetailModelInterface
 	osadlModel         models.OSADLModelInterface
+	spdxLicenseCache   cache.SPDXLicenseCacheInterface
 	db                 *sqlx.DB
 }
 
-func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseUseCase {
+func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB, spdxCache cache.SPDXLicenseCacheInterface) *LicenseUseCase {
 	return &LicenseUseCase{
 		config:             config,
 		sc:                 scanoss.New(db),
 		licenseDetailModel: models.NewLicenseDetailModel(db),
 		purlLicenseModel:   models.NewPurlLicensesModel(db),
 		osadlModel:         models.NewOSADLModel(db),
+		spdxLicenseCache:   spdxCache,
 		db:                 db,
 	}
 }

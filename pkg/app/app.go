@@ -25,6 +25,7 @@ import (
 	"os"
 	"scanoss.com/licenses/pkg/server"
 	"strings"
+	"time"
 
 	"github.com/golobby/config/v3"
 	"github.com/golobby/config/v3/pkg/feeder"
@@ -32,8 +33,10 @@ import (
 	"github.com/scanoss/go-grpc-helper/pkg/files"
 	gd "github.com/scanoss/go-grpc-helper/pkg/grpc/database"
 	gs "github.com/scanoss/go-grpc-helper/pkg/grpc/server"
+	"github.com/scanoss/go-models/pkg/scanoss"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	_ "modernc.org/sqlite"
+	"scanoss.com/licenses/pkg/cache"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/protocol/grpc"
 	"scanoss.com/licenses/pkg/protocol/rest"
@@ -114,13 +117,17 @@ func Boostrap() error {
 	// Setup dynamic logging (if necessary)
 	zlog.SetupAppDynamicLogging(cfg.Logging.DynamicPort, cfg.Logging.DynamicLogging)
 
-	v2API := server.NewLicenseServer(cfg, db)
 	ctx := context.Background()
-
-	if err != nil {
-		fmt.Printf("Failed to load SPDX license validator: %v", err)
-		return err
+	// Initialize SPDX license cache
+	sc := scanoss.New(db)
+	refreshSPDXCacheTime := time.Duration(cfg.Cache.SPDXRefreshHours) * time.Hour
+	spdxCache := cache.NewSPDXLicenseCache(sc, zlog.S, refreshSPDXCacheTime)
+	if err = spdxCache.Start(ctx); err != nil {
+		return fmt.Errorf("failed to initialize SPDX license cache: %v", err)
 	}
+	defer spdxCache.Stop()
+
+	v2API := server.NewLicenseServer(cfg, db, spdxCache)
 	// Start the REST grpc-gateway if requested
 	var srv *http.Server
 	if len(cfg.App.RESTPort) > 0 {
