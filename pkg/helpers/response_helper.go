@@ -1,10 +1,12 @@
+// Package helpers provides utility functions for response status determination.
 package helpers
 
 import (
 	"fmt"
+	"net/http"
+
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
-	"net/http"
 )
 
 // componentsLicenseInfoStatus determines the appropriate status code and message

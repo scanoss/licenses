@@ -3,13 +3,12 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/scanoss/go-component-helper/componenthelper"
 	"net/http"
-	"scanoss.com/licenses/pkg/helpers"
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
+	"github.com/scanoss/go-component-helper/componenthelper"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"go.uber.org/zap"
@@ -18,6 +17,7 @@ import (
 	"scanoss.com/licenses/pkg/cache"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
+	"scanoss.com/licenses/pkg/helpers"
 	"scanoss.com/licenses/pkg/middleware"
 	"scanoss.com/licenses/pkg/usecase"
 )
@@ -124,5 +124,4 @@ func (h *LicenseHandler) GetDetails(ctx context.Context, middleware middleware.M
 		Status:  h.getResponseStatus(s, ctx, status, httpCode, message, err),
 		License: &licenseDetail,
 	}, err
-
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/scanoss/go-component-helper/componenthelper"
 	"github.com/scanoss/papi/api/commonv2"

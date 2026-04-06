@@ -46,10 +46,10 @@ func TestGetOSDALByLicenseId(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.licenseID, func(t *testing.T) {
-			license, err := osadlModel.GetOSADLByLicenseId(ctx, s, test.licenseID)
+			license, err := osadlModel.GetOSADLByLicenseID(ctx, s, test.licenseID)
 			if test.expectErr {
 				if err == nil {
-					t.Errorf("osadlModel.GetOSADLByLicenseId() error = %v, wantErr %v", err, test.expectErr)
+					t.Errorf("osadlModel.GetOSADLByLicenseID() error = %v, wantErr %v", err, test.expectErr)
 				}
 			}
 			fmt.Printf("LicenseDetail: %#v\n", license)

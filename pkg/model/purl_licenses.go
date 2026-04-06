@@ -20,9 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -100,7 +100,7 @@ func (m *PurlLicensesModel) GetLicensesByPurlVersionAndSource(ctx context.Contex
 	return purlLicenses, nil
 }
 
-// GetLicensesByUnversionedPurlAndSource retrieves license data from unversioned purl with source filtering
+// GetLicensesByUnversionedPurlAndSource retrieves license data from unversioned purl with source filtering.
 func (m *PurlLicensesModel) GetLicensesByUnversionedPurlAndSource(ctx context.Context, purl string, sourceID []int16) ([]PurlLicense, error) {
 	s := ctxzap.Extract(ctx).Sugar()
 

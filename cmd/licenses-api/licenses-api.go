@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"os"
+
 	"scanoss.com/licenses/pkg/app"
 )
 

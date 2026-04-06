@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"scanoss.com/licenses/pkg/server"
 	"strings"
 	"time"
 
@@ -40,6 +39,7 @@ import (
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/protocol/grpc"
 	"scanoss.com/licenses/pkg/protocol/rest"
+	"scanoss.com/licenses/pkg/server"
 )
 
 //go:generate bash ../../get_version.sh
