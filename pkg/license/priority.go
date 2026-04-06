@@ -4,7 +4,7 @@ import (
 	models "scanoss.com/licenses/pkg/model"
 )
 
-// Source ID constants for license detection methods
+// Source ID constants for license detection methods.
 const (
 	SourceComponentDeclared        = int16(0)
 	SourceInternalAttributionFiles = int16(3)
@@ -12,7 +12,7 @@ const (
 	SourceScancodeAttributionFiles = int16(5)
 )
 
-// ExtractLicenseIDsFromPurlLicenses extracts all unique SPDX licenses from all license_ids
+// ExtractLicenseIDsFromPurlLicenses extracts all unique SPDX licenses from all license_ids.
 func ExtractLicenseIDsFromPurlLicenses(licenses []models.PurlLicense) []int32 {
 	if len(licenses) == 0 {
 		return []int32{}

@@ -1,3 +1,4 @@
+// Package dto provides data transfer objects for request and response handling.
 package dto
 
 type ComponentRequestDTO struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	"scanoss.com/licenses/pkg/dto"
@@ -22,7 +23,6 @@ func NewLicenseDetailMiddleware(req *pb.LicenseRequest, ctx context.Context) Mid
 }
 
 func (m *LicenseDetailMiddleware[TOutput]) Process() (dto.LicenseRequestDTO, error) {
-
 	if len(m.req.GetId()) == 0 {
 		m.s.Warn("No license request data supplied to decorate. Ignoring request.")
 		return dto.LicenseRequestDTO{}, errors.New("no license request data supplied")

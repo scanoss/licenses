@@ -1,5 +1,5 @@
-name: Go Unit Test
-# This workflow will build a golang project and run unit tests
+name: Golang CI Lint
+# This workflow will run the golangci-lint analysis
 
 on:
   workflow_dispatch:
@@ -21,8 +21,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
-      - name: Build
-        run: make build_amd
+      - name: Setup Version
+        run: make version
 
-      - name: Unit Test
-        run: make unit_test
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9

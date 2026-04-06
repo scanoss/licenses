@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 )
@@ -82,7 +83,7 @@ func (lcl *LDBComponentLicensesModel) GetLicensesByPurlMD5(ctx context.Context, 
 	return componentLicenses, nil
 }
 
-// CalculateMD5FromPurlVersion generates MD5 hash from component and version
+// CalculateMD5FromPurlVersion generates MD5 hash from component and version.
 func (lcl *LDBComponentLicensesModel) CalculateMD5FromPurlVersion(purl, version string) string {
 	purlString := fmt.Sprintf("%s@%s", purl, version)
 	hash := md5.Sum([]byte(purlString))

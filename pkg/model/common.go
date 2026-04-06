@@ -65,6 +65,8 @@ func loadTestSQLDataFiles(db *sqlx.DB, ctx context.Context, files []string) erro
 }
 
 // sqliteSetup sets up an in-memory SQL Lite DB for testing.
+//
+//nolint:unused // used by test files only
 func sqliteSetup(t *testing.T) *sqlx.DB {
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
 	if err != nil {
@@ -74,6 +76,8 @@ func sqliteSetup(t *testing.T) *sqlx.DB {
 }
 
 // sqliteConn sets up a connection to a test DB.
+//
+//nolint:unused // used by test files only
 func sqliteConn(t *testing.T, ctx context.Context, db *sqlx.DB) *sqlx.Conn {
 	conn, err := db.Connx(ctx) // Get a connection from the pool
 	if err != nil {
@@ -82,7 +86,7 @@ func sqliteConn(t *testing.T, ctx context.Context, db *sqlx.DB) *sqlx.Conn {
 	return conn
 }
 
-// sqliteConn sets up a connection to a test DB.
+// NewConn sets up a new database connection from the pool.
 func NewConn(ctx context.Context, db *sqlx.DB) (*sqlx.Conn, error) {
 	conn, err := db.Connx(ctx) // Get a connection from the pool
 	if err != nil {

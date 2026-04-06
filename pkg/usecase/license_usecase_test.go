@@ -31,7 +31,7 @@ func (m *MockLicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLog
 	return args.Get(0).(models.LicenseDetail), args.Error(1)
 }
 
-func (m *MockOSADLModel) GetOSADLByLicenseId(ctx context.Context, s *zap.SugaredLogger, id string) (models.OSADL, error) {
+func (m *MockOSADLModel) GetOSADLByLicenseID(ctx context.Context, s *zap.SugaredLogger, id string) (models.OSADL, error) {
 	args := m.Called(id)
 	return args.Get(0).(models.OSADL), args.Error(1)
 }
@@ -63,10 +63,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{
 					ID:                    1,
 					Name:                  "MIT LicenseDetail",
-					LicenseId:             "MIT",
-					DetailsUrl:            "https://spdx.org/licenses/MIT.html",
+					LicenseID:             "MIT",
+					DetailsURL:            "https://spdx.org/licenses/MIT.html",
 					Reference:             "https://opensource.org/licenses/MIT",
-					IsDeprecatedLicenseId: false,
+					IsDeprecatedLicenseID: false,
 					IsOsiApproved:         true,
 					SeeAlso:               models.SeeAlso{"https://opensource.org/licenses/MIT"},
 					IsFsfLibre:            true,
@@ -75,9 +75,9 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
-				mockModel.On("GetOSADLByLicenseId", "MIT").Return(models.OSADL{
+				mockModel.On("GetOSADLByLicenseID", "MIT").Return(models.OSADL{
 					ID:                       1,
-					LicenseId:                "MIT",
+					LicenseID:                "MIT",
 					Compatibilities:          models.JSONStringSlice{},
 					Incompatibilities:        models.JSONStringSlice{},
 					DependingCompatibilities: models.JSONStringSlice{},
@@ -94,7 +94,6 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 				Spdx: &pb.SPDX{
 					FullName:      "MIT LicenseDetail",
 					Id:            "MIT",
-					DetailsUrl:    "https://spdx.org/licenses/MIT.html",
 					ReferenceUrl:  "https://opensource.org/licenses/MIT",
 					IsDeprecated:  false,
 					IsOsiApproved: true,
@@ -121,7 +120,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
-				mockModel.On("GetOSADLByLicenseId", "NONEXISTENT").Return(models.OSADL{}, nil)
+				mockModel.On("GetOSADLByLicenseID", "NONEXISTENT").Return(models.OSADL{}, nil)
 				return mockModel
 			}(),
 			licenseRequest: dto.LicenseRequestDTO{
@@ -145,7 +144,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
-				mockModel.On("GetOSADLByLicenseId", "EMPTY").Return(models.OSADL{}, nil)
+				mockModel.On("GetOSADLByLicenseID", "EMPTY").Return(models.OSADL{}, nil)
 				return mockModel
 			}(),
 			licenseRequest: dto.LicenseRequestDTO{
@@ -167,10 +166,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 				mockModel.On("GetLicenseByID", "mit").Return(models.LicenseDetail{
 					ID:                    1,
 					Name:                  "MIT LicenseDetail",
-					LicenseId:             "MIT",
-					DetailsUrl:            "https://spdx.org/licenses/MIT.html",
+					LicenseID:             "MIT",
+					DetailsURL:            "https://spdx.org/licenses/MIT.html",
 					Reference:             "https://opensource.org/licenses/MIT",
-					IsDeprecatedLicenseId: false,
+					IsDeprecatedLicenseID: false,
 					IsOsiApproved:         true,
 					SeeAlso:               models.SeeAlso{"https://opensource.org/licenses/MIT"},
 					IsFsfLibre:            true,
@@ -179,9 +178,9 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
-				mockModel.On("GetOSADLByLicenseId", "MIT").Return(models.OSADL{
+				mockModel.On("GetOSADLByLicenseID", "MIT").Return(models.OSADL{
 					ID:                       1,
-					LicenseId:                "MIT",
+					LicenseID:                "MIT",
 					Compatibilities:          models.JSONStringSlice{},
 					Incompatibilities:        models.JSONStringSlice{},
 					DependingCompatibilities: models.JSONStringSlice{},
@@ -198,7 +197,6 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 				Spdx: &pb.SPDX{
 					FullName:      "MIT LicenseDetail",
 					Id:            "MIT",
-					DetailsUrl:    "https://spdx.org/licenses/MIT.html",
 					ReferenceUrl:  "https://opensource.org/licenses/MIT",
 					IsDeprecated:  false,
 					IsOsiApproved: true,
@@ -225,7 +223,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
-				mockModel.On("GetOSADLByLicenseId", "NONEXISTENT").Return(models.OSADL{}, errors.New("error connecting to db"))
+				mockModel.On("GetOSADLByLicenseID", "NONEXISTENT").Return(models.OSADL{}, errors.New("error connecting to db"))
 				return mockModel
 			}(),
 			licenseRequest: dto.LicenseRequestDTO{
@@ -247,10 +245,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{
 					ID:                    1,
 					Name:                  "MIT LicenseDetail",
-					LicenseId:             "MIT",
-					DetailsUrl:            "https://spdx.org/licenses/MIT.html",
+					LicenseID:             "MIT",
+					DetailsURL:            "https://spdx.org/licenses/MIT.html",
 					Reference:             "https://opensource.org/licenses/MIT",
-					IsDeprecatedLicenseId: false,
+					IsDeprecatedLicenseID: false,
 					IsOsiApproved:         true,
 					SeeAlso:               models.SeeAlso{"https://opensource.org/licenses/MIT"},
 					IsFsfLibre:            true,
@@ -259,7 +257,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			}(),
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
-				mockModel.On("GetOSADLByLicenseId", "MIT").Return(models.OSADL{}, errors.New("error connecting to osadl db"))
+				mockModel.On("GetOSADLByLicenseID", "MIT").Return(models.OSADL{}, errors.New("error connecting to osadl db"))
 				return mockModel
 			}(),
 			licenseRequest: dto.LicenseRequestDTO{

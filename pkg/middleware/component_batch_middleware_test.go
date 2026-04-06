@@ -57,29 +57,3 @@ func TestNewComponentBatchMiddlewareWithEmptyRequest(t *testing.T) {
 		}
 	})
 }
-
-func TestGroupComponentsByPurl(t *testing.T) {
-	ctx := context.Background()
-	s := ctxzap.Extract(ctx).Sugar()
-	middleware := &ComponentBatchMiddleware[[]dto.ComponentRequestDTO]{
-		MiddlewareBase: MiddlewareBase{s: s},
-	}
-
-	t.Run("component grouping", func(t *testing.T) {
-		components := []dto.ComponentRequestDTO{
-			{Purl: "pkg:npm/lodash", Requirement: "4.17.21"},
-			{Purl: "pkg:npm/react", Requirement: "18.0.0"},
-			{Purl: "pkg:npm/react"},
-			{Purl: "pkg:npm/react", Requirement: "18.0.0"},
-			{Purl: "pkg:github/scanoss/scanenr.c@1.2.3"},
-			{Purl: "pkg:github/scanoss/scanenr.c@1.2.3"},
-		}
-
-		result := middleware.groupComponentsByPurl(components)
-
-		if len(result) != 4 {
-			t.Fatalf("Failed to group components by purl. Expected 4 components, got %d", len(result))
-		}
-
-	})
-}

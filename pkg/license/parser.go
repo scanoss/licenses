@@ -1,11 +1,12 @@
 package license
 
 import (
-	"github.com/github/go-spdx/v2/spdxexp"
 	"strings"
+
+	"github.com/github/go-spdx/v2/spdxexp"
 )
 
-// ParseLicenseExpression parses SPDX license expressions and returns individual licenses
+// ParseLicenseExpression parses SPDX license expressions and returns individual licenses.
 func ParseLicenseExpression(license string) ([]string, error) {
 	// Try SPDX expression parsing first
 	if strings.Contains(license, " AND ") || strings.Contains(license, " OR ") || strings.Contains(license, "(") {

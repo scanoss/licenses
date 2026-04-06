@@ -25,9 +25,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
-	"strings"
 )
 
 type LicenseDetailModelInterface interface {
@@ -83,11 +84,11 @@ func (s SeeAlso) Value() (driver.Value, error) {
 type LicenseDetail struct {
 	ID                    int32   `json:"id" db:"id"`
 	Reference             string  `json:"reference" db:"reference"`
-	IsDeprecatedLicenseId bool    `json:"isDeprecatedLicenseId" db:"is_deprecated_license_id"`
-	DetailsUrl            string  `json:"detailsUrl" db:"details_url"`
+	IsDeprecatedLicenseID bool    `json:"isDeprecatedLicenseId" db:"is_deprecated_license_id"`
+	DetailsURL            string  `json:"detailsUrl" db:"details_url"`
 	ReferenceNumber       int     `json:"referenceNumber" db:"reference_number"`
 	Name                  string  `json:"name" db:"name"`
-	LicenseId             string  `json:"licenseId" db:"license_id"`
+	LicenseID             string  `json:"licenseId" db:"license_id"`
 	SeeAlso               SeeAlso `json:"seeAlso" db:"see_also"`
 	IsOsiApproved         bool    `json:"isOsiApproved" db:"is_osi_approved"`
 	IsFsfLibre            bool    `json:"isFsfLibre" db:"is_fsf_libre"`
@@ -99,12 +100,12 @@ func NewLicenseDetailModel(db *sqlx.DB) *LicenseModel {
 }
 
 // GetLicenseByID retrieves license data by the given row ID.
-func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, licenseId string) (LicenseDetail, error) {
+func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, licenseID string) (LicenseDetail, error) {
 	conn, err := NewConn(ctx, m.db)
 	if err != nil {
 		return LicenseDetail{}, err
 	}
-	licenseIDToUpper := strings.ToUpper(licenseId)
+	licenseIDToUpper := strings.ToUpper(licenseID)
 	var license LicenseDetail
 	err = conn.QueryRowxContext(ctx,
 		"SELECT * FROM licenses WHERE UPPER(license_id) = $1", licenseIDToUpper).StructScan(&license)

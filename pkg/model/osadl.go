@@ -7,20 +7,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
-	"strings"
 )
 
 type OSADLModelInterface interface {
-	GetOSADLByLicenseId(ctx context.Context, s *zap.SugaredLogger, id string) (OSADL, error)
+	GetOSADLByLicenseID(ctx context.Context, s *zap.SugaredLogger, id string) (OSADL, error)
 }
 
 type OSADLModel struct {
 	db *sqlx.DB
 }
 
-// JSONStringSlice is a generic type that handles JSON marshaling/unmarshaling for string slices
+// JSONStringSlice is a generic type that handles JSON marshaling/unmarshaling for string slices.
 type JSONStringSlice []string
 
 func (s *JSONStringSlice) Scan(value interface{}) error {
@@ -65,7 +66,7 @@ func (s JSONStringSlice) Value() (driver.Value, error) {
 
 type OSADL struct {
 	ID                       int32           `json:"id" db:"id"`
-	LicenseId                string          `json:"licenseId" db:"license_id"`
+	LicenseID                string          `json:"licenseId" db:"license_id"`
 	Compatibilities          JSONStringSlice `json:"compatibilities" db:"compatibilities"`
 	Incompatibilities        JSONStringSlice `json:"incompatibilities" db:"incompatibilities"`
 	DependingCompatibilities JSONStringSlice `json:"dependingCompatibilities" db:"depending_compatibilities"`
@@ -79,13 +80,13 @@ func NewOSADLModel(db *sqlx.DB) *OSADLModel {
 	return &OSADLModel{db: db}
 }
 
-// GetLicenseByID retrieves license data by the given row ID.
-func (m *OSADLModel) GetOSADLByLicenseId(ctx context.Context, s *zap.SugaredLogger, licenseId string) (OSADL, error) {
+// GetOSADLByLicenseID retrieves OSADL data by the given license ID.
+func (m *OSADLModel) GetOSADLByLicenseID(ctx context.Context, s *zap.SugaredLogger, licenseID string) (OSADL, error) {
 	conn, err := NewConn(ctx, m.db)
 	if err != nil {
 		return OSADL{}, err
 	}
-	licenseIDToUpper := strings.ToUpper(licenseId)
+	licenseIDToUpper := strings.ToUpper(licenseID)
 	var osadl OSADL
 	s.Debugf("LicenseDetail ID: %v", licenseIDToUpper)
 	err = conn.QueryRowxContext(ctx,
