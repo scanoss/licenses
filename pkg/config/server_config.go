@@ -70,6 +70,9 @@ type ServerConfig struct {
 		BlockByDefault bool   `env:"DEPS_BLOCK_BY_DEFAULT"` // Block request by default if they are not in the allow list
 		TrustProxy     bool   `env:"DEPS_TRUST_PROXY"`      // Trust the interim proxy or not (causes the source IP to be validated instead of the proxy)
 	}
+	Cache struct {
+		SPDXRefreshHours int `env:"CACHE_SPDX_REFRESH_HOURS"` // SPDX license cache refresh interval in hours (default 24)
+	}
 }
 
 // NewServerConfig loads all config options and return a struct for use.
@@ -108,4 +111,5 @@ func setServerConfigDefaults(cfg *ServerConfig) {
 	cfg.Logging.DynamicPort = "localhost:60057"
 	cfg.Telemetry.Enabled = false
 	cfg.Telemetry.OltpExporter = "0.0.0.0:4317" // Default OTEL OLTP gRPC Exporter endpoint
+	cfg.Cache.SPDXRefreshHours = 24
 }

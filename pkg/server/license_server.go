@@ -5,6 +5,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
+	"scanoss.com/licenses/pkg/cache"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/handler"
 	"scanoss.com/licenses/pkg/middleware"
@@ -18,11 +19,11 @@ type LicenseServer struct {
 }
 
 // NewLicenseServer creates a new instance of Licenses Server.
-func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB) pb.LicenseServer {
+func NewLicenseServer(config *myconfig.ServerConfig, db *sqlx.DB, spdxCache cache.SPDXLicenseCacheInterface) pb.LicenseServer {
 	return &LicenseServer{
 		config:  config,
 		db:      db,
-		handler: handler.NewLicenseHandler(config, db),
+		handler: handler.NewLicenseHandler(config, db, spdxCache),
 	}
 }
 

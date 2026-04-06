@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"scanoss.com/licenses/pkg/cache"
 	myconfig "scanoss.com/licenses/pkg/config"
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/middleware"
@@ -27,10 +28,10 @@ type LicenseHandler struct {
 }
 
 // NewLicenseHandler creates a new instance of License handler.
-func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB) *LicenseHandler {
+func NewLicenseHandler(config *myconfig.ServerConfig, db *sqlx.DB, spdxCache cache.SPDXLicenseCacheInterface) *LicenseHandler {
 	return &LicenseHandler{
 		config:         config,
-		licenseUseCase: usecase.NewLicenseUseCase(config, db),
+		licenseUseCase: usecase.NewLicenseUseCase(config, db, spdxCache),
 	}
 }
 

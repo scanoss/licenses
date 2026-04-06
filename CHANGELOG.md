@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `go-component-helper` dependency for centralized component version resolution
 - Added per-component `error_message` and `error_code` fields in license responses for failed components
+- Added SPDX license cache with configurable refresh interval (`CACHE_SPDX_REFRESH_HOURS`, default 24h)
+- Added unit tests for SPDX license cache
 
 ### Changed
 - Replaced local `dto.ComponentRequestDTO` with `componenthelper.ComponentDTO` from `go-component-helper`
