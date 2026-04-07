@@ -100,6 +100,63 @@ func (m *PurlLicensesModel) GetLicensesByPurlVersionAndSource(ctx context.Contex
 	return purlLicenses, nil
 }
 
+// GetLicensesByPurlVersionsAndSource retrieves license data for a purl across multiple versions with source filtering.
+func (m *PurlLicensesModel) GetLicensesByPurlVersionsAndSource(ctx context.Context, purl string, versions []string, sourceID []int16) ([]PurlLicense, error) {
+	s := ctxzap.Extract(ctx).Sugar()
+
+	if len(purl) == 0 {
+		s.Error("Please specify a valid purl to query")
+		return nil, errors.New("please specify a valid purl to query")
+	}
+
+	if len(versions) == 0 {
+		s.Error("Please specify at least one version to query")
+		return nil, errors.New("please specify at least one version to query")
+	}
+
+	if len(sourceID) == 0 {
+		s.Error("Please specify at least one source_id to query")
+		return nil, errors.New("please specify at least one source_id to query")
+	}
+
+	args := []interface{}{purl}
+	paramIdx := 2
+
+	// Build IN clause for versions
+	versionPlaceholders := make([]string, len(versions))
+	for i, v := range versions {
+		versionPlaceholders[i] = fmt.Sprintf("$%d", paramIdx)
+		args = append(args, v)
+		paramIdx++
+	}
+
+	// Build IN clause for source_ids
+	sourcePlaceholders := make([]string, len(sourceID))
+	for i, id := range sourceID {
+		sourcePlaceholders[i] = fmt.Sprintf("$%d", paramIdx)
+		args = append(args, id)
+		paramIdx++
+	}
+
+	query := fmt.Sprintf(
+		"SELECT purl, version, date, source_id, license_id FROM purl_licenses "+
+			"	WHERE purl = $1 AND version IN (%s) AND source_id IN (%s)"+
+			"	AND version != ''",
+		strings.Join(versionPlaceholders, ","),
+		strings.Join(sourcePlaceholders, ","),
+	)
+
+	var purlLicenses []PurlLicense
+	err := m.db.SelectContext(ctx, &purlLicenses, query, args...)
+	if err != nil {
+		s.Errorf("Failed to query purl_licenses table for purl %v, versions count %d, source_ids %v: %v", purl, len(versions), sourceID, err)
+		return nil, fmt.Errorf("failed to query the purl_licenses table: %v", err)
+	}
+
+	s.Debugf("Found %v results for purl %v across %d versions, source_ids %v", len(purlLicenses), purl, len(versions), sourceID)
+	return purlLicenses, nil
+}
+
 // GetLicensesByUnversionedPurlAndSource retrieves license data from unversioned purl with source filtering.
 func (m *PurlLicensesModel) GetLicensesByUnversionedPurlAndSource(ctx context.Context, purl string, sourceID []int16) ([]PurlLicense, error) {
 	s := ctxzap.Extract(ctx).Sugar()
