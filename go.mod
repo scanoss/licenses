@@ -3,6 +3,7 @@ module scanoss.com/licenses
 go 1.25.0
 
 require (
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/github/go-spdx/v2 v2.4.0
 	github.com/golobby/config/v3 v3.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -11,7 +12,7 @@ require (
 	github.com/scanoss/go-component-helper v0.6.0
 	github.com/scanoss/go-grpc-helper v0.13.0
 	github.com/scanoss/go-models v0.9.0
-	github.com/scanoss/papi v0.34.0
+	github.com/scanoss/papi v0.34.1
 	github.com/scanoss/zap-logging-helper v0.4.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
@@ -21,7 +22,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

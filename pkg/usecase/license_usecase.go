@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/go-component-helper/componenthelper"
@@ -86,7 +89,7 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 				Purl:         c.OriginalPurl,
 				Requirement:  c.OriginalRequirement,
 				Version:      c.Version,
-				ComponentUrl: c.URL,
+				Url:          c.URL,
 				ErrorMessage: &msg,
 				ErrorCode:    domain.StatusCodeToErrorCode(c.Status.StatusCode),
 			})
@@ -100,34 +103,59 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.SugaredLogger,
 	c componenthelper.Component) *pb.ComponentLicenseInfo {
 	componentInfo := &pb.ComponentLicenseInfo{
-		Purl:         c.OriginalPurl,
-		Requirement:  c.OriginalRequirement,
-		ComponentUrl: c.URL,
+		Purl:        c.OriginalPurl,
+		Requirement: c.OriginalRequirement,
+		Url:         c.URL,
 	}
 
 	version := c.Version
-	// Fallback: when GetComponentsVersion did not resolve an exact version (c.Version is empty)
-	// but a requirement was provided (e.g. ">=5.0.0") and known versions exist, attempt to find
-	// the nearest version that satisfies the requirement. This covers cases where no version
-	// exactly matches the requirement range (e.g. requirement ">=5.0.0" with latest version "2.0.0").
-	if c.Version == "" && c.Requirement != "" && len(c.Versions) > 0 {
-		//TODO: Add find nearest version as Component receiver. i.e c.FindNearestVersion()
-		version = comphelputils.FindNearestVersion(c.Requirement, c.Versions)
-		if version == "" {
-			msg := fmt.Sprintf("Version not found for requirement %s", c.Requirement)
-			componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
-			componentInfo.ErrorMessage = &msg
-			return componentInfo
-		}
-		msg := fmt.Sprintf("Version not found, using nearest version %s", version)
-		componentInfo.ErrorMessage = &msg
-		// TODO: Add new status RequirementNotMet
-		componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
+	var purlLicenses []models.PurlLicense
+
+	// Step 1: Try to fetch licenses for the exact resolved version (e.g. "1.2.3").
+	if version != "" {
+		purlLicenses = lu.fetchLicensesByPurlAndVersion(ctx, s, c.Purl, version)
 	}
+
+	// Step 2: If no licenses were found for the exact version and there are known versions available,
+	// query all known versions at once and pick the nearest version to the requirement that has license data.
+	// If no requirement was provided, fall back to using the resolved version as the reference point.
+	if len(purlLicenses) == 0 && len(c.Versions) > 0 {
+		requirement := c.Requirement
+		if requirement == "" {
+			requirement = c.Version
+		}
+		nearestLicenses, nearestVersion := lu.fetchLicensesByPurlAndVersions(ctx, s, c.Purl, requirement, c.Versions)
+		if len(nearestLicenses) > 0 {
+			purlLicenses = nearestLicenses
+			version = nearestVersion
+			// When a requirement was explicitly provided, check if the nearest version actually satisfies it.
+			// If it doesn't, inform the caller that the returned version doesn't meet the original constraint.
+			if c.Requirement != "" {
+				if !versionSatisfiesRequirement(nearestVersion, c.Requirement) {
+					message := fmt.Sprintf("Version not found for requirement %s, nearest version found: %s", c.Requirement, version)
+					componentInfo.ErrorMessage = &message
+					componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
+				}
+			}
+		}
+	}
+
+	// Step 3: Last resort — try fetching licenses from the unversioned purl entry.
+	if len(purlLicenses) == 0 {
+		s.Infof("no purlLicenses data found for purl=%s version=%s. Trying unversioned purl", c.Purl, version)
+		purlLicenses = lu.fetchLicensesByPurl(ctx, s, c.Purl)
+		version = ""
+		componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
+		message := "Retrieving licenses for unversioned component"
+		if len(purlLicenses) > 0 && c.Requirement != "" {
+			message = fmt.Sprintf("Licenses for requirement %s not found, retrieving licenses for unversioned component", c.Requirement)
+		}
+		componentInfo.ErrorMessage = &message
+	}
+
 	componentInfo.Version = version
 
-	purlLicenses := lu.fetchPurlLicenses(ctx, s, c, version)
-	if purlLicenses == nil {
+	if len(purlLicenses) == 0 {
 		message := fmt.Sprintf("License info not found for %s", c.Purl)
 		componentInfo.ErrorMessage = &message
 		componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.ComponentWithoutInfo)
@@ -170,37 +198,76 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 	return componentInfo
 }
 
-func (lu LicenseUseCase) fetchPurlLicenses(ctx context.Context, s *zap.SugaredLogger,
-	c componenthelper.Component, version string) []models.PurlLicense {
-	sources := []int16{
+func (lu LicenseUseCase) getLicenseSources() []int16 {
+	return []int16{
 		license.SourceComponentDeclared,
 		license.SourceAttributionFile,
-		license.SourceSPDXAttributionFiles,
 		license.SourceInternalAttributionFiles,
+		license.SourceSPDXAttributionFiles,
 	}
+}
 
-	purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, c.Purl, version, sources)
+// fetchLicensesByPurlAndVersion retrieves licenses for a specific purl and version.
+func (lu LicenseUseCase) fetchLicensesByPurlAndVersion(ctx context.Context, s *zap.SugaredLogger,
+	purl, version string) []models.PurlLicense {
+	purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, purl, version, lu.getLicenseSources())
 	if err != nil {
-		s.Warnf("error when querying GetVersionedAndUnversionedLicenses() for purl=%s version=%s: %v", c.Purl, version, err)
+		s.Warnf("error when querying GetLicensesByPurlVersionAndSource() for purl=%s version=%s: %v", purl, version, err)
 		return nil
 	}
+	return purlLicenses
+}
 
-	if len(purlLicenses) == 0 {
-		s.Info("no purlLicenses data found for purl=%s version=%s. Trying with unversioned purl", c.Purl, version)
-		purlLicenses, err = lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, c.Purl, sources)
-
-		if err != nil {
-			s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", c.Purl, err)
-			return nil
-		}
-
-		if len(purlLicenses) == 0 {
-			s.Info("no purlLicenses data found for unversioned purl=%s.", c.Purl, version)
-			return nil
-		}
+// fetchLicensesByPurlAndVersions retrieves licenses across multiple versions for a purl
+// and returns the licenses for the nearest version to the requirement.
+func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *zap.SugaredLogger,
+	purl, requirement string, versions []string) ([]models.PurlLicense, string) {
+	allVersionLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionsAndSource(ctx, purl, versions, lu.getLicenseSources())
+	if err != nil {
+		s.Warnf("error when querying GetLicensesByPurlVersionsAndSource() for purl=%s: %v", purl, err)
+		return nil, ""
+	}
+	if len(allVersionLicenses) == 0 {
+		return nil, ""
 	}
 
+	// Group licenses by version
+	licensesByVersion := make(map[string][]models.PurlLicense)
+	for _, pl := range allVersionLicenses {
+		licensesByVersion[pl.Version] = append(licensesByVersion[pl.Version], pl)
+	}
+
+	nearestVersion := comphelputils.FindNearestVersion(requirement, slices.Collect(maps.Keys(licensesByVersion)))
+	if nearestVersion == "" {
+		return nil, ""
+	}
+
+	s.Debugf("using nearest version %s (from %d available) for purl=%s", nearestVersion, len(licensesByVersion), purl)
+	return licensesByVersion[nearestVersion], nearestVersion
+}
+
+// fetchLicensesByPurl retrieves licenses for an unversioned purl.
+func (lu LicenseUseCase) fetchLicensesByPurl(ctx context.Context, s *zap.SugaredLogger,
+	purl string) []models.PurlLicense {
+	purlLicenses, err := lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, purl, lu.getLicenseSources())
+	if err != nil {
+		s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", purl, err)
+		return nil
+	}
 	return purlLicenses
+}
+
+// versionSatisfiesRequirement checks if a version satisfies a semver constraint/requirement.
+func versionSatisfiesRequirement(version, requirement string) bool {
+	c, err := semver.NewConstraint(requirement)
+	if err != nil {
+		return false
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return c.Check(v)
 }
 
 func (lu LicenseUseCase) resolveSPDXLicenses(ctx context.Context, s *zap.SugaredLogger,
