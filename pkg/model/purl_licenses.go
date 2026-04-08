@@ -75,18 +75,17 @@ func (m *PurlLicensesModel) GetLicensesByPurlVersionAndSource(ctx context.Contex
 		return nil, errors.New("please specify at least one source_id to query")
 	}
 
-	// Build IN clause dynamically for multiple source_ids
-	placeholders := make([]string, len(sourceID))
 	args := []interface{}{purl, version}
-
+	sourcePlaceholders := make([]string, len(sourceID))
 	for i, id := range sourceID {
-		placeholders[i] = fmt.Sprintf("$%d", i+3) // $3, $4, $5, etc.
+		sourcePlaceholders[i] = fmt.Sprintf("$%d", i+3)
 		args = append(args, id)
 	}
 
 	query := fmt.Sprintf(
-		"SELECT purl, version, date, source_id, license_id FROM purl_licenses WHERE purl = $1 AND version = $2 AND source_id IN (%s)",
-		strings.Join(placeholders, ","),
+		"SELECT purl, version, date, source_id, license_id FROM purl_licenses "+
+			"WHERE purl = $1 AND version = $2 AND source_id IN (%s)",
+		strings.Join(sourcePlaceholders, ","),
 	)
 
 	var purlLicenses []PurlLicense
@@ -95,7 +94,6 @@ func (m *PurlLicensesModel) GetLicensesByPurlVersionAndSource(ctx context.Contex
 		s.Errorf("Failed to query purl_licenses table for purl %v, version %v, source_ids %v: %v", purl, version, sourceID, err)
 		return nil, fmt.Errorf("failed to query the purl_licenses table: %v", err)
 	}
-
 	s.Debugf("Found %v results for purl %v, version %v, source_ids %v", len(purlLicenses), purl, version, sourceID)
 	return purlLicenses, nil
 }
