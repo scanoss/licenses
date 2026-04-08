@@ -20,11 +20,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/golobby/config/v3"
 	"github.com/golobby/config/v3/pkg/feeder"
 )
+
+// emptyPriorityFeeder is a test feeder that wipes Lookup.SourcePriority
+// so we can verify NewServerConfig rejects an empty list.
+type emptyPriorityFeeder struct{}
+
+func (emptyPriorityFeeder) Feed(structure interface{}) error {
+	if cfg, ok := structure.(*ServerConfig); ok {
+		cfg.Lookup.SourcePriority = nil
+	}
+	return nil
+}
 
 func TestServerConfig(t *testing.T) {
 	dbUser := "test-user"
@@ -88,4 +100,18 @@ func TestServerConfigJson(t *testing.T) {
 		t.Errorf("DB user '%v' doesn't match expected: %v", cfg.Database.User, dbUser)
 	}
 	fmt.Printf("Server Config3: %+v\n", cfg)
+}
+
+func TestServerConfig_EmptySourcePriorityFails(t *testing.T) {
+	err := os.Unsetenv("LOOKUP_SOURCE_PRIORITY")
+	if err != nil {
+		fmt.Printf("Warning: Problem running Unsetenv: %v\n", err)
+	}
+	_, err = NewServerConfig([]config.Feeder{emptyPriorityFeeder{}})
+	if err == nil {
+		t.Fatal("expected error when SourcePriority is empty, got nil")
+	}
+	if !strings.Contains(err.Error(), "LOOKUP_SOURCE_PRIORITY") {
+		t.Errorf("expected error to mention LOOKUP_SOURCE_PRIORITY, got: %v", err)
+	}
 }

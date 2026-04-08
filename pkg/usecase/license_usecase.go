@@ -143,7 +143,7 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 	// Step 3: Last resort — try fetching licenses from the unversioned purl entry.
 	if len(purlLicenses) == 0 {
 		s.Infof("no purlLicenses data found for purl=%s version=%s. Trying unversioned purl", c.Purl, version)
-		purlLicenses = lu.fetchLicensesByPurl(ctx, s, c.Purl)
+		purlLicenses = lu.fetchLicensesByPurl(ctx, s, c.Purl, []int16{license.SourceScancodeAttributionFiles})
 		version = ""
 		componentInfo.ErrorCode = domain.StatusCodeToErrorCode(domain.VersionNotFound)
 		message := "Retrieving licenses for unversioned component"
@@ -198,19 +198,10 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 	return componentInfo
 }
 
-func (lu LicenseUseCase) getLicenseSources() []int16 {
-	return []int16{
-		license.SourceComponentDeclared,
-		license.SourceAttributionFile,
-		license.SourceInternalAttributionFiles,
-		license.SourceSPDXAttributionFiles,
-	}
-}
-
 // fetchLicensesByPurlAndVersion retrieves licenses for a specific purl and version.
 func (lu LicenseUseCase) fetchLicensesByPurlAndVersion(ctx context.Context, s *zap.SugaredLogger,
 	purl, version string) []models.PurlLicense {
-	purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, purl, version, lu.getLicenseSources())
+	purlLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, purl, version, lu.config.Lookup.SourcePriority)
 	if err != nil {
 		s.Warnf("error when querying GetLicensesByPurlVersionAndSource() for purl=%s version=%s: %v", purl, version, err)
 		return nil
@@ -222,7 +213,7 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersion(ctx context.Context, s *z
 // and returns the licenses for the nearest version to the requirement.
 func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *zap.SugaredLogger,
 	purl, requirement string, versions []string) ([]models.PurlLicense, string) {
-	allVersionLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionsAndSource(ctx, purl, versions, lu.getLicenseSources())
+	allVersionLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionsAndSource(ctx, purl, versions, lu.config.Lookup.SourcePriority)
 	if err != nil {
 		s.Warnf("error when querying GetLicensesByPurlVersionsAndSource() for purl=%s: %v", purl, err)
 		return nil, ""
@@ -248,8 +239,8 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *
 
 // fetchLicensesByPurl retrieves licenses for an unversioned purl.
 func (lu LicenseUseCase) fetchLicensesByPurl(ctx context.Context, s *zap.SugaredLogger,
-	purl string) []models.PurlLicense {
-	purlLicenses, err := lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, purl, lu.getLicenseSources())
+	purl string, sourceID []int16) []models.PurlLicense {
+	purlLicenses, err := lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, purl, sourceID)
 	if err != nil {
 		s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", purl, err)
 		return nil

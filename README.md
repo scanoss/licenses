@@ -28,7 +28,38 @@ DB_PASSWD=
 DB_SCHEMA=scanoss
 DB_SSL_MODE=disable
 DB_DSN=
+
+LOOKUP_SOURCE_PRIORITY=0,31,32,33,3,5
 ```
+
+### License lookup source priority
+
+`LOOKUP_SOURCE_PRIORITY` is an **ordered** list of license detection source IDs. When resolving licenses for a component, the service walks the list from highest to lowest priority and **stops at the first source that returns data** — lower-priority sources are only consulted when the current one yields no rows. The order you write is the priority order.
+
+The default value is `[0, 31, 32, 33, 34, 35, 3, 5]`, which corresponds to the following sources:
+
+| ID | Source               | Scope     | Description                                                                                                              |
+|----|----------------------|-----------|--------------------------------------------------------------------------------------------------------------------------|
+| 0  | `component_declared` | component | Declared at repository — read from project metadata via URL discovery using the API. Reported as the **first** source.  |
+| 31 | `license_file`       | component | Detected at attribution file — files in the root directory whose lowercased names match `notice`, `license`, `readme`, or `copying`. Reported as the **second** source. |
+| 32 | `license_file`       | component | Detected at the `./license/` folder — all files inside the `license` subfolder of the root directory. Internal use.     |
+| 33 | `metadata_file`      | component | Detected at metadata file — files inside `./meta-inf/` whose lowercased names match `notice`, `license`, `readme`, `copying`, or `manifest`. Reported as the **fourth** source. |
+| 34 | `licenses_folder`    | component | Detected at the `./licenses/` folder — all files inside the `licenses` subfolder of the root directory. Internal use. |
+| 35 | `component_declared` | component | Scraped from the repository/API using the internal scraping tool (on-demand, fills gaps). Reported as the **third** source. |
+| 3  | `license_file`       | component | Legacy back-compat detection in attribution files (pending remediation). Reported as the **second** source. |
+| 5  | `scancode`           | component | Detected on attribution file by ScanCode — component-level licenses extracted from attribution files via ScanCode. Reported as the **last** source. |
+
+Can also be set in the JSON config file:
+
+```json
+{
+  "Lookup": {
+    "SourcePriority": [0, 31, 32, 33, 34, 35, 3, 5]
+  }
+}
+```
+
+Whitespace after commas is tolerated. An empty list causes the service to fail at startup.
 
 
 ## Docker Environment
