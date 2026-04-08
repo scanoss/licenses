@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added `LOOKUP_SOURCE_PRIORITY` configuration (env var and JSON `Lookup.SourcePriority`) to control the ordered priority of license detection sources. Sources are walked from highest to lowest priority, stopping at the first source that returns license data. See [README](README.md#license-lookup-source-priority) for details.
+
 ## [0.1.0] - 2026-04-07
 ### Added
 - Added nearest version fallback for license lookup: when no licenses exist for a specific version, queries all known versions and returns licenses for the nearest version to the requirement

@@ -6,11 +6,10 @@ import (
 
 // Source ID constants for license detection methods.
 const (
-	SourceComponentDeclared        = int16(0)
-	SourceInternalAttributionFiles = int16(3)
-	SourceSPDXAttributionFiles     = int16(6)
-	SourceScancodeAttributionFiles = int16(5)
-	SourceAttributionFile          = int16(31)
+	// TODO: Should we add another config for soource fallback priority?
+
+	// SourceScancodeAttributionFiles Fallback source.
+	SourceScancodeAttributionFiles = int16(5) // scancode
 )
 
 // ExtractLicenseIDsFromPurlLicenses extracts all unique SPDX licenses from all license_ids.

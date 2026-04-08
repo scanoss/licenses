@@ -17,6 +17,8 @@
 package config
 
 import (
+	"errors"
+
 	"github.com/golobby/config/v3"
 	"github.com/golobby/config/v3/pkg/feeder"
 )
@@ -73,6 +75,9 @@ type ServerConfig struct {
 	Cache struct {
 		SPDXRefreshHours int `env:"CACHE_SPDX_REFRESH_HOURS"` // SPDX license cache refresh interval in hours (default 24)
 	}
+	Lookup struct {
+		SourcePriority []int16 `env:"LOOKUP_SOURCE_PRIORITY"`
+	}
 }
 
 // NewServerConfig loads all config options and return a struct for use.
@@ -88,6 +93,9 @@ func NewServerConfig(feeders []config.Feeder) (*ServerConfig, error) {
 	err := c.Feed()
 	if err != nil {
 		return nil, err
+	}
+	if len(cfg.Lookup.SourcePriority) == 0 {
+		return nil, errors.New("LOOKUP_SOURCE_PRIORITY must not be empty")
 	}
 	return &cfg, nil
 }
@@ -112,4 +120,5 @@ func setServerConfigDefaults(cfg *ServerConfig) {
 	cfg.Telemetry.Enabled = false
 	cfg.Telemetry.OltpExporter = "0.0.0.0:4317" // Default OTEL OLTP gRPC Exporter endpoint
 	cfg.Cache.SPDXRefreshHours = 24
+	cfg.Lookup.SourcePriority = []int16{0, 31, 32, 33, 34, 35, 3, 5}
 }
