@@ -77,6 +77,7 @@ type ServerConfig struct {
 	}
 	Lookup struct {
 		SourcePriority []int16 `env:"LOOKUP_SOURCE_PRIORITY"`
+		MaxWorkers     int     `env:"LOOKUP_MAX_WORKERS"`
 	}
 }
 
@@ -121,4 +122,5 @@ func setServerConfigDefaults(cfg *ServerConfig) {
 	cfg.Telemetry.OltpExporter = "0.0.0.0:4317" // Default OTEL OLTP gRPC Exporter endpoint
 	cfg.Cache.SPDXRefreshHours = 24
 	cfg.Lookup.SourcePriority = []int16{0, 31, 32, 33, 34, 35, 3, 5}
+	cfg.Lookup.MaxWorkers = 5
 }
