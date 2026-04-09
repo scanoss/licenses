@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-04-10
 ### Added
 - Added `LOOKUP_SOURCE_PRIORITY` configuration (env var and JSON `Lookup.SourcePriority`) to control the ordered priority of license detection sources. Sources are walked from highest to lowest priority, stopping at the first source that returns license data. See [README](README.md#license-lookup-source-priority) for details.
+- Added concurrent license lookup with bounded concurrency and context cancellation support. The number of in-flight license lookups is configurable via `LOOKUP_MAX_WORKERS` (env var and JSON `Lookup.MaxWorkers`).
 ### Changed
 - Cut license search on the first hit using the configured source priority
 

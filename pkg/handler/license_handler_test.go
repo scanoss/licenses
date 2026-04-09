@@ -97,6 +97,8 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
+	config.Lookup.MaxWorkers = 5
+	config.Lookup.SourcePriority = []int16{31, 32, 33, 5}
 	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
 	if err != nil {
@@ -140,6 +142,8 @@ func TestLicenseHandler_GetComponentLicense(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
+	config.Lookup.MaxWorkers = 5
+	config.Lookup.SourcePriority = []int16{31, 32, 33, 5}
 	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
 	err = models.LoadTestSQLData(db, ctx)
@@ -213,6 +217,7 @@ func TestLicenseHandler_GetComponentsLicense_ResponseStatus(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
+	config.Lookup.MaxWorkers = 5
 	config.Lookup.SourcePriority = []int16{31, 32, 33, 5}
 	ctx := ctxzap.ToContext(context.Background(), zlog.L)
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
@@ -304,6 +309,7 @@ func TestLicenseHandler_GetComponentLicense_ResponseStatus(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
+	config.Lookup.MaxWorkers = 5
 	// Set look up priority
 	config.Lookup.SourcePriority = []int16{31, 32, 33, 5}
 	ctx := ctxzap.ToContext(context.Background(), zlog.L)

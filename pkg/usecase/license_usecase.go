@@ -70,17 +70,62 @@ func (lu LicenseUseCase) GetComponentLicense(ctx context.Context, dto componenth
 	return results[0], nil
 }
 
+// componentsLicenseWorker resolves licenses for the given components concurrently
+// using a bounded worker pool (Lookup.MaxWorkers). Honors ctx cancellation.
+func (lu LicenseUseCase) componentsLicenseWorker(ctx context.Context, s *zap.SugaredLogger, components []componenthelper.Component) []*pb.ComponentLicenseInfo {
+	componentLicenses := make([]*pb.ComponentLicenseInfo, 0, len(components))
+	jobs := make(chan componenthelper.Component, len(components))
+	results := make(chan *pb.ComponentLicenseInfo, len(components))
+	for _, c := range components {
+		jobs <- c
+	}
+	close(jobs)
+	// Cap workers at len(components); fall back to 1 if MaxWorkers is unset.
+	workers := 1
+	if lu.config.Lookup.MaxWorkers > 0 && len(components) > 0 {
+		workers = min(len(components), lu.config.Lookup.MaxWorkers)
+	}
+	for i := 0; i < workers; i++ {
+		go func() {
+			for c := range jobs {
+				// Skip queued jobs once the caller has gone away, so we don't
+				// run expensive license lookups for results that will be discarded.
+				if ctx.Err() != nil {
+					return
+				}
+				result := lu.processComponentLicenses(ctx, s, c)
+				select {
+				case <-ctx.Done():
+					return
+				case results <- result:
+				}
+			}
+		}()
+	}
+	for i := 0; i < len(components); i++ {
+		select {
+		case <-ctx.Done():
+			s.Warnf("componentsLicenseWorker cancelled after %d/%d results: %v", i, len(components), ctx.Err())
+			return componentLicenses
+		case r := <-results:
+			componentLicenses = append(componentLicenses, r)
+		}
+	}
+	return componentLicenses
+}
+
 // GetComponentsLicense retrieves license info for multiple components.
 func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs []componenthelper.ComponentDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
 	processedComponents := componenthelper.GetComponentsVersion(componenthelper.ComponentVersionCfg{
-		MaxWorkers: 5,
+		MaxWorkers: lu.config.Lookup.MaxWorkers,
 		DB:         lu.db,
 		Ctx:        ctx,
 		S:          s,
 		Input:      componentDTOs,
 	})
 	clir := make([]*pb.ComponentLicenseInfo, 0, len(processedComponents))
+	var toProcess []componenthelper.Component
 	for _, c := range processedComponents {
 		if c.Status.StatusCode != domain.Success && c.Status.StatusCode != domain.VersionNotFound {
 			msg := c.Status.Message
@@ -94,9 +139,13 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 			})
 			continue
 		}
-		clir = append(clir, lu.processComponentLicenses(ctx, s, c))
+		toProcess = append(toProcess, c)
 	}
-	return clir, nil
+	if len(toProcess) == 0 {
+		return clir, nil
+	}
+	results := lu.componentsLicenseWorker(ctx, s, toProcess)
+	return results, nil
 }
 
 func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.SugaredLogger,
