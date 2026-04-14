@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/scanoss/go-component-helper/componenthelper"
+	"github.com/scanoss/go-grpc-helper/pkg/grpc/domain"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"net/http"
 	"os"
@@ -133,6 +134,36 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 			t.Errorf("Expected SUCCESS status, got %v", response.Status.Status)
 		}
 
+	})
+
+	t.Run("includes failed components alongside successful ones", func(t *testing.T) {
+		mockMW := &mockMiddleware{
+			processFunc: func() ([]componenthelper.ComponentDTO, error) {
+				return []componenthelper.ComponentDTO{
+					{Purl: "pkg:gitlab/gpl/project", Requirement: "1.0.0"},
+					{Purl: "pkg:npm/this-does-not-exist", Requirement: "9.9.9"},
+				}, nil
+			},
+		}
+
+		response, err := handler.GetComponentsLicense(ctx, mockMW)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if response == nil {
+			t.Fatal("Expected response, got nil")
+		}
+		if got := len(response.Components); got != 2 {
+			t.Fatalf("Expected 2 components in response, got %d", got)
+		}
+
+		for _, c := range response.Components {
+			if c.Purl == "pkg:npm/this-does-not-exist" {
+				if *c.ErrorCode.Enum() != *domain.StatusCodeToErrorCode(domain.ComponentNotFound) {
+					t.Errorf("Expected error code %v for component %s, got %v", domain.ComponentNotFound, c.Purl, c.ErrorCode.Enum())
+				}
+			}
+		}
 	})
 }
 
