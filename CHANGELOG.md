@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.1] - 2026-04-14
+### Fixed
+- Fixed `GetComponentsLicense` dropping components with resolution errors from the response; failed components are now included alongside successful lookup results.
+
 ## [0.2.0] - 2026-04-10
 ### Added
 - Added `LOOKUP_SOURCE_PRIORITY` configuration (env var and JSON `Lookup.SourcePriority`) to control the ordered priority of license detection sources. Sources are walked from highest to lowest priority, stopping at the first source that returns license data. See [README](README.md#license-lookup-source-priority) for details.
@@ -58,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default ports: REST `40057`, gRPC `50057`, and logging `66057`
 
 
+[0.2.1]: https://github.com/scanoss/licenses/releases/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/scanoss/licenses/releases/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/scanoss/licenses/releases/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/scanoss/licenses/releases/compare/v0.0.6...v0.0.7

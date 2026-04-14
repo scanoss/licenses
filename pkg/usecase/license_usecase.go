@@ -124,12 +124,12 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 		S:          s,
 		Input:      componentDTOs,
 	})
-	clir := make([]*pb.ComponentLicenseInfo, 0, len(processedComponents))
+	failedResults := make([]*pb.ComponentLicenseInfo, 0, len(processedComponents))
 	var toProcess []componenthelper.Component
 	for _, c := range processedComponents {
 		if c.Status.StatusCode != domain.Success && c.Status.StatusCode != domain.VersionNotFound {
 			msg := c.Status.Message
-			clir = append(clir, &pb.ComponentLicenseInfo{
+			failedResults = append(failedResults, &pb.ComponentLicenseInfo{
 				Purl:         c.OriginalPurl,
 				Requirement:  c.OriginalRequirement,
 				Version:      c.Version,
@@ -141,10 +141,11 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 		}
 		toProcess = append(toProcess, c)
 	}
-	if len(toProcess) == 0 {
-		return clir, nil
+	results := make([]*pb.ComponentLicenseInfo, 0, len(componentDTOs))
+	results = append(results, failedResults...)
+	if len(toProcess) > 0 {
+		results = append(results, lu.componentsLicenseWorker(ctx, s, toProcess)...)
 	}
-	results := lu.componentsLicenseWorker(ctx, s, toProcess)
 	return results, nil
 }
 
