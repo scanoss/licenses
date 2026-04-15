@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [0.3.0] - 2026-04-16
+### Fixed
+- Fixed `is_spdx_approved` being set to `true` for licenses whose details could not be found in the SPDX cache; the flag is now only set when the cache actually returns details.
 ### Changed
 - Upgraded `papi` to `v0.36.0`.
 - Changed the per-component `error_code` field from `pb.StatusCode` protobuf enum to a plain `string`.
