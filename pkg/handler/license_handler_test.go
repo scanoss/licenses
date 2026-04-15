@@ -159,8 +159,8 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 
 		for _, c := range response.Components {
 			if c.Purl == "pkg:npm/this-does-not-exist" {
-				if *c.ErrorCode.Enum() != *domain.StatusCodeToErrorCode(domain.ComponentNotFound) {
-					t.Errorf("Expected error code %v for component %s, got %v", domain.ComponentNotFound, c.Purl, c.ErrorCode.Enum())
+				if *c.ErrorCode != domain.ComponentNotFound.String() {
+					t.Errorf("Expected error code %v for component %s, got %v", domain.ComponentNotFound, c.Purl, *c.ErrorCode)
 				}
 			}
 		}
