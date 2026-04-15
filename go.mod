@@ -10,9 +10,9 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.12.1
 	github.com/scanoss/go-component-helper v0.6.0
-	github.com/scanoss/go-grpc-helper v0.13.0
+	github.com/scanoss/go-grpc-helper v0.15.1
 	github.com/scanoss/go-models v0.9.0
-	github.com/scanoss/papi v0.34.1
+	github.com/scanoss/papi v0.37.0
 	github.com/scanoss/zap-logging-helper v0.4.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1

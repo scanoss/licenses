@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-16
+### Added
+- Added local `pkg/domain` package with a `RequirementNotMet` status code, used when the nearest available version does not satisfy the requested requirement.
+
+### Changed
+- Upgrade `scanoss/go-grpc-helper` to `v0.15.1`
+- Upgraded `papi` to `v0.37.0`.
+- Renamed per-component response fields `error_message`/`error_code` to `info_message`/`info_code`.
+- Renamed error code `ComponentWithoutInfo` to `NoInfo`.
+- Use the new `RequirementNotMet` status (instead of `VersionNotFound`) when the nearest fallback version does not satisfy the requirement.
+
 ## [0.2.1] - 2026-04-14
 ### Fixed
 - Fixed `GetComponentsLicense` dropping components with resolution errors from the response; failed components are now included alongside successful lookup results.
@@ -63,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default ports: REST `40057`, gRPC `50057`, and logging `66057`
 
 
+[0.3.0]: https://github.com/scanoss/licenses/releases/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/scanoss/licenses/releases/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/scanoss/licenses/releases/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/scanoss/licenses/releases/compare/v0.0.7...v0.1.0
