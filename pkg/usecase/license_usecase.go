@@ -131,12 +131,12 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 			msg := c.Status.Message
 			code := c.Status.StatusCode.String()
 			failedResults = append(failedResults, &pb.ComponentLicenseInfo{
-				Purl:         c.OriginalPurl,
-				Requirement:  c.OriginalRequirement,
-				Version:      c.Version,
-				Url:          c.URL,
-				ErrorMessage: &msg,
-				ErrorCode:    &code,
+				Purl:        c.OriginalPurl,
+				Requirement: c.OriginalRequirement,
+				Version:     c.Version,
+				Url:         c.URL,
+				InfoMessage: &msg,
+				InfoCode:    &code,
 			})
 			continue
 		}
@@ -193,9 +193,9 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 				if c.Requirement != "" {
 					if !versionSatisfiesRequirement(nearestVersion, c.Requirement) {
 						message := fmt.Sprintf("Version not found for requirement %s, nearest version found: %s", c.Requirement, version)
-						code := domain.VersionNotFound.String()
-						componentInfo.ErrorMessage = &message
-						componentInfo.ErrorCode = &code
+						code := domain.RequirementNotMet.String()
+						componentInfo.InfoMessage = &message
+						componentInfo.InfoCode = &code
 					}
 				}
 			}
@@ -208,20 +208,20 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 		purlLicenses = lu.fetchLicensesByPurl(ctx, s, c.Purl, lu.config.Lookup.SourcePriority)
 		version = ""
 		code := domain.VersionNotFound.String()
-		componentInfo.ErrorCode = &code
 		message := "Retrieving licenses for unversioned component"
+		componentInfo.InfoCode = &code
 		if len(purlLicenses) > 0 && c.Requirement != "" {
 			message = fmt.Sprintf("Licenses for requirement %s not found, retrieving licenses for unversioned component", c.Requirement)
 		}
-		componentInfo.ErrorMessage = &message
+		componentInfo.InfoMessage = &message
 	}
 	componentInfo.Version = version
 
 	if len(purlLicenses) == 0 {
 		message := fmt.Sprintf("License info not found for %s", c.Purl)
 		code := domain.NoInfo.String()
-		componentInfo.ErrorMessage = &message
-		componentInfo.ErrorCode = &code
+		componentInfo.InfoMessage = &message
+		componentInfo.InfoCode = &code
 		return componentInfo
 	}
 
@@ -231,8 +231,8 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 		s.Warnf("no license data available for purl=%s version=%s", c.Purl, version)
 		message := fmt.Sprintf("License info not found for %s", c.Purl)
 		code := domain.NoInfo.String()
-		componentInfo.ErrorMessage = &message
-		componentInfo.ErrorCode = &code
+		componentInfo.InfoMessage = &message
+		componentInfo.InfoCode = &code
 		return componentInfo
 	}
 
@@ -244,8 +244,8 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 		s.Warnf("no valid licenses found after processing %d license IDs for purl=%s version=%s", len(dedupLicensesIDs), c.Purl, c.Version)
 		message := fmt.Sprintf("License info not found for %s", c.Purl)
 		code := domain.NoInfo.String()
-		componentInfo.ErrorMessage = &message
-		componentInfo.ErrorCode = &code
+		componentInfo.InfoMessage = &message
+		componentInfo.InfoCode = &code
 		return componentInfo
 	}
 
