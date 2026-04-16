@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-04-16
+## [0.3.0] - 2026-04-20
 ### Fixed
 - Fixed `is_spdx_approved` being set to `true` for licenses whose details could not be found in the SPDX cache; the flag is now only set when the cache actually returns details.
 ### Changed
-- Upgraded `papi` to `v0.36.0`.
+- Upgrade `scanoss/grpc-helper` to `v0.15.1`
+- Upgraded `scanoss/papi` to `v0.37.0`.
 - Changed the per-component `error_code` field from `pb.StatusCode` protobuf enum to a plain `string`.
-- Replaced the removed `domain.StatusCodeToErrorCode` helper with direct `domain.StatusCode.String()` calls for populating `error_code`.
+- Replace `error_message` and `error_code` with `info_message` and `info_code`
 - Renamed error code `ComponentWithoutInfo` to `NoInfo`.
+- Added new status `RequirementNotMet` to response
 
 ## [0.2.1] - 2026-04-14
 ### Fixed

@@ -4,20 +4,20 @@ go 1.25.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/github/go-spdx/v2 v2.4.0
+	github.com/github/go-spdx/v2 v2.5.0
 	github.com/golobby/config/v3 v3.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/lib/pq v1.12.1
+	github.com/lib/pq v1.12.3
 	github.com/scanoss/go-component-helper v0.6.0
-	github.com/scanoss/go-grpc-helper v0.15.0
+	github.com/scanoss/go-grpc-helper v0.15.1
 	github.com/scanoss/go-models v0.9.0
-	github.com/scanoss/papi v0.36.0
+	github.com/scanoss/papi v0.37.0
 	github.com/scanoss/zap-logging-helper v0.4.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
 	google.golang.org/grpc v1.80.0
-	modernc.org/sqlite v1.48.0
+	modernc.org/sqlite v1.48.2
 )
 
 require (

@@ -159,8 +159,8 @@ func TestLicenseHandler_GetLicenses(t *testing.T) {
 
 		for _, c := range response.Components {
 			if c.Purl == "pkg:npm/this-does-not-exist" {
-				if *c.ErrorCode != domain.ComponentNotFound.String() {
-					t.Errorf("Expected error code %v for component %s, got %v", domain.ComponentNotFound, c.Purl, *c.ErrorCode)
+				if *c.InfoCode != domain.ComponentNotFound.String() {
+					t.Errorf("Expected error code %v for component %s, got %v", domain.ComponentNotFound, c.Purl, *c.InfoCode)
 				}
 			}
 		}
@@ -318,17 +318,17 @@ func TestLicenseHandler_GetComponentsLicense_ResponseStatus(t *testing.T) {
 			if comp.Purl != tt.component.Purl {
 				t.Errorf("Expected purl %s, got %s", tt.component.Purl, comp.Purl)
 			}
-			if tt.expectErrMessage && comp.ErrorMessage == nil {
+			if tt.expectErrMessage && comp.InfoMessage == nil {
 				t.Errorf("Component %s: expected error_message to be set", comp.Purl)
 			}
-			if !tt.expectErrMessage && comp.ErrorMessage != nil {
-				t.Errorf("Component %s: expected no error_message, got %q", comp.Purl, *comp.ErrorMessage)
+			if !tt.expectErrMessage && comp.InfoMessage != nil {
+				t.Errorf("Component %s: expected no error_message, got %q", comp.Purl, *comp.InfoMessage)
 			}
-			if tt.expectErrCode && comp.ErrorCode == nil {
+			if tt.expectErrCode && comp.InfoCode == nil {
 				t.Errorf("Component %s: expected error_code to be set", comp.Purl)
 			}
-			if !tt.expectErrCode && comp.ErrorCode != nil {
-				t.Errorf("Component %s: expected no error_code, got %v", comp.Purl, *comp.ErrorCode)
+			if !tt.expectErrCode && comp.InfoCode != nil {
+				t.Errorf("Component %s: expected no error_code, got %v", comp.Purl, *comp.InfoCode)
 			}
 		})
 	}
@@ -406,17 +406,17 @@ func TestLicenseHandler_GetComponentLicense_ResponseStatus(t *testing.T) {
 			if response.Component.Purl != tt.component.Purl {
 				t.Errorf("Expected purl %s, got %s", tt.component.Purl, response.Component.Purl)
 			}
-			if tt.expectErrMessage && response.Component.ErrorMessage == nil {
+			if tt.expectErrMessage && response.Component.InfoMessage == nil {
 				t.Error("Expected error_message to be set")
 			}
-			if !tt.expectErrMessage && response.Component.ErrorMessage != nil {
-				t.Errorf("Expected no error_message, got %q", *response.Component.ErrorMessage)
+			if !tt.expectErrMessage && response.Component.InfoMessage != nil {
+				t.Errorf("Expected no error_message, got %q", *response.Component.InfoMessage)
 			}
-			if tt.expectErrCode && response.Component.ErrorCode == nil {
+			if tt.expectErrCode && response.Component.InfoCode == nil {
 				t.Error("Expected error_code to be set")
 			}
-			if !tt.expectErrCode && response.Component.ErrorCode != nil {
-				t.Errorf("Expected no error_code, got %v", *response.Component.ErrorCode)
+			if !tt.expectErrCode && response.Component.InfoCode != nil {
+				t.Errorf("Expected no error_code, got %v", *response.Component.InfoCode)
 			}
 		})
 	}
