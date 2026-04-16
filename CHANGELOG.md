@@ -7,10 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-04-16
-### Added
-- Added local `pkg/domain` package with a `RequirementNotMet` status code, used when the nearest available version does not satisfy the requested requirement.
-
+## [0.3.0] - 2026-04-20
+### Fixed
+- Fixed `is_spdx_approved` being set to `true` for licenses whose details could not be found in the SPDX cache; the flag is now only set when the cache actually returns details.
 ### Changed
 - Upgrade `scanoss/go-grpc-helper` to `v0.15.1`
 - Upgraded `papi` to `v0.37.0`.

@@ -361,8 +361,8 @@ func (lu LicenseUseCase) resolveSPDXLicenses(ctx context.Context, s *zap.Sugared
 					if detail, ok := lu.spdxLicenseCache.GetLicenseByID(l); ok {
 						fullName = detail.Name
 						url = detail.DetailsURL
+						isSpdxApproved = true
 					}
-					isSpdxApproved = true
 				}
 				finalLicenses = append(finalLicenses, &pb.LicenseInfo{
 					Id:             l,
