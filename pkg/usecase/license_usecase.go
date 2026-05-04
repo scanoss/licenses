@@ -127,6 +127,7 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 	failedResults := make([]*pb.ComponentLicenseInfo, 0, len(processedComponents))
 	var toProcess []componenthelper.Component
 	for _, c := range processedComponents {
+		fmt.Printf("SOURCE PURL: %+v\n\n", c.SourcePurl)
 		if c.Status.StatusCode != domain.Success && c.Status.StatusCode != domain.VersionNotFound {
 			msg := c.Status.Message
 			code := c.Status.StatusCode.String()
@@ -383,7 +384,7 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 	if err != nil {
 		return pb.LicenseDetails{}, &Error{Status: common.StatusCode_FAILED, Code: http.StatusInternalServerError, Message: err.Error(), Error: err}
 	}
-	if licenseRecord.ID == 0 {
+	if licenseRecord.LicenseID == "" {
 		s.Warnf("LicenseDetail not found: %s", lic.ID)
 		return pb.LicenseDetails{}, &Error{
 			Status: common.StatusCode_SUCCEEDED_WITH_WARNINGS,
@@ -414,9 +415,9 @@ func (lu LicenseUseCase) GetDetails(ctx context.Context, s *zap.SugaredLogger, l
 		Osadl: &pb.OSADL{
 			Compatibility:          osadl.Compatibilities,
 			Incompatibility:        osadl.Incompatibilities,
-			CopyleftClause:         osadl.CopyleftClause,
+			CopyleftClause:         bool(osadl.CopyleftClause),
 			DependingCompatibility: osadl.DependingCompatibilities,
-			PatentHints:            osadl.PatentHints,
+			PatentHints:            bool(osadl.PatentHints),
 		},
 	}, nil
 }

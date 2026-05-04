@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"github.com/lib/pq"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
 	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
@@ -61,7 +62,6 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
 				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{
-					ID:                    1,
 					Name:                  "MIT LicenseDetail",
 					LicenseID:             "MIT",
 					DetailsURL:            "https://spdx.org/licenses/MIT.html",
@@ -76,11 +76,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
 				mockModel.On("GetOSADLByLicenseID", "MIT").Return(models.OSADL{
-					ID:                       1,
-					LicenseID:                "MIT",
-					Compatibilities:          models.JSONStringSlice{},
-					Incompatibilities:        models.JSONStringSlice{},
-					DependingCompatibilities: models.JSONStringSlice{},
+					ID:                       "MIT",
+					Compatibilities:          pq.StringArray{},
+					Incompatibilities:        pq.StringArray{},
+					DependingCompatibilities: pq.StringArray{},
 					PatentHints:              false,
 					CopyleftClause:           false,
 				}, nil)
@@ -136,7 +135,7 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "license found but with ID 0 (empty result)",
+			name: "license found but with empty LicenseID (empty result)",
 			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
 				mockModel.On("GetLicenseByID", "EMPTY").Return(models.LicenseDetail{}, nil)
@@ -164,7 +163,6 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
 				mockModel.On("GetLicenseByID", "mit").Return(models.LicenseDetail{
-					ID:                    1,
 					Name:                  "MIT LicenseDetail",
 					LicenseID:             "MIT",
 					DetailsURL:            "https://spdx.org/licenses/MIT.html",
@@ -179,11 +177,10 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			osadlModel: func() models.OSADLModelInterface {
 				mockModel := new(MockOSADLModel)
 				mockModel.On("GetOSADLByLicenseID", "MIT").Return(models.OSADL{
-					ID:                       1,
-					LicenseID:                "MIT",
-					Compatibilities:          models.JSONStringSlice{},
-					Incompatibilities:        models.JSONStringSlice{},
-					DependingCompatibilities: models.JSONStringSlice{},
+					ID:                       "MIT",
+					Compatibilities:          pq.StringArray{},
+					Incompatibilities:        pq.StringArray{},
+					DependingCompatibilities: pq.StringArray{},
 					PatentHints:              false,
 					CopyleftClause:           false,
 				}, nil)
@@ -243,7 +240,6 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			licModel: func() models.LicenseDetailModelInterface {
 				mockModel := new(MockLicenseModel)
 				mockModel.On("GetLicenseByID", "MIT").Return(models.LicenseDetail{
-					ID:                    1,
 					Name:                  "MIT LicenseDetail",
 					LicenseID:             "MIT",
 					DetailsURL:            "https://spdx.org/licenses/MIT.html",
