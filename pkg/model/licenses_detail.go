@@ -21,13 +21,12 @@ package models
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -38,60 +37,17 @@ type LicenseDetailModelInterface interface {
 type LicenseModel struct {
 	db *sqlx.DB
 }
-
-type SeeAlso []string
-
-func (s *SeeAlso) Scan(value interface{}) error {
-	if value == nil {
-		*s = nil
-		return nil
-	}
-
-	str, ok := value.(string)
-	if !ok {
-		*s = nil
-		return nil
-	}
-
-	if str == "" {
-		*s = nil
-		return nil
-	}
-
-	var result []string
-	if err := json.Unmarshal([]byte(str), &result); err != nil {
-		*s = nil
-		return nil
-	}
-
-	*s = SeeAlso(result)
-	return nil
-}
-
-func (s SeeAlso) Value() (driver.Value, error) {
-	if len(s) == 0 {
-		return nil, nil
-	}
-
-	data, err := json.Marshal([]string(s))
-	if err != nil {
-		return nil, err
-	}
-
-	return string(data), nil
-}
-
 type LicenseDetail struct {
-	ID                    int32   `json:"id" db:"id"`
-	Reference             string  `json:"reference" db:"reference"`
-	IsDeprecatedLicenseID bool    `json:"isDeprecatedLicenseId" db:"is_deprecated_license_id"`
-	DetailsURL            string  `json:"detailsUrl" db:"details_url"`
-	ReferenceNumber       int     `json:"referenceNumber" db:"reference_number"`
-	Name                  string  `json:"name" db:"name"`
-	LicenseID             string  `json:"licenseId" db:"license_id"`
-	SeeAlso               SeeAlso `json:"seeAlso" db:"see_also"`
-	IsOsiApproved         bool    `json:"isOsiApproved" db:"is_osi_approved"`
-	IsFsfLibre            bool    `json:"isFsfLibre" db:"is_fsf_libre"`
+	LicenseID             string         `json:"licenseId" db:"id"`
+	Type                  string         `json:"type" db:"type"`
+	Reference             string         `json:"reference" db:"reference"`
+	IsDeprecatedLicenseID bool           `json:"isDeprecatedLicenseId" db:"isdeprecatedlicenseid"`
+	DetailsURL            string         `json:"detailsUrl" db:"detailsurl"`
+	ReferenceNumber       int            `json:"referenceNumber" db:"referencenumber"`
+	Name                  string         `json:"name" db:"name"`
+	SeeAlso               pq.StringArray `json:"seeAlso" db:"seealso"`
+	IsOsiApproved         bool           `json:"isOsiApproved" db:"isosiapproved"`
+	IsFsfLibre            bool           `json:"isFsfLibre" db:"-"`
 }
 
 // NewLicenseDetailModel create a new instance of the LicenseDetail Model.
@@ -108,7 +64,11 @@ func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger,
 	licenseIDToUpper := strings.ToUpper(licenseID)
 	var license LicenseDetail
 	err = conn.QueryRowxContext(ctx,
-		"SELECT * FROM licenses WHERE UPPER(license_id) = $1", licenseIDToUpper).StructScan(&license)
+		"SELECT id,"+
+			" type,"+
+			" reference,"+
+			" isdeprecatedlicenseid, detailsurl, referencenumber, name, seealso, isosiapproved "+
+			"FROM spdx_license_data WHERE UPPER(id) = $1", licenseIDToUpper).StructScan(&license)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.Errorf("Error: Failed to query license table for %v: %#v", licenseIDToUpper, err)
 		return LicenseDetail{}, fmt.Errorf("failed to query the license table: %v", err)

@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -21,58 +21,42 @@ type OSADLModel struct {
 	db *sqlx.DB
 }
 
-// JSONStringSlice is a generic type that handles JSON marshaling/unmarshaling for string slices.
-type JSONStringSlice []string
+// YesNoBool scans the strings "Yes"/"No" (and bool/[]byte forms) from the database into a bool.
+type YesNoBool bool
 
-func (s *JSONStringSlice) Scan(value interface{}) error {
+func (b *YesNoBool) Scan(value interface{}) error {
 	if value == nil {
-		*s = nil
+		*b = false
 		return nil
 	}
-
-	str, ok := value.(string)
-	if !ok {
-		*s = nil
-		return nil
+	switch v := value.(type) {
+	case bool:
+		*b = YesNoBool(v)
+	case string:
+		*b = YesNoBool(strings.EqualFold(v, "yes") || strings.EqualFold(v, "true"))
+	case []byte:
+		*b = YesNoBool(strings.EqualFold(string(v), "yes") || strings.EqualFold(string(v), "true"))
+	default:
+		return fmt.Errorf("cannot scan %T into YesNoBool", value)
 	}
-
-	if str == "" {
-		*s = nil
-		return nil
-	}
-
-	var result []string
-	if err := json.Unmarshal([]byte(str), &result); err != nil {
-		*s = nil
-		return nil
-	}
-
-	*s = JSONStringSlice(result)
 	return nil
 }
 
-func (s JSONStringSlice) Value() (driver.Value, error) {
-	if len(s) == 0 {
-		return nil, nil
+func (b YesNoBool) Value() (driver.Value, error) {
+	if b {
+		return "Yes", nil
 	}
-
-	data, err := json.Marshal([]string(s))
-	if err != nil {
-		return nil, err
-	}
-
-	return string(data), nil
+	return "No", nil
 }
 
 type OSADL struct {
-	ID                       int32           `json:"id" db:"id"`
-	LicenseID                string          `json:"licenseId" db:"license_id"`
-	Compatibilities          JSONStringSlice `json:"compatibilities" db:"compatibilities"`
-	Incompatibilities        JSONStringSlice `json:"incompatibilities" db:"incompatibilities"`
-	DependingCompatibilities JSONStringSlice `json:"dependingCompatibilities" db:"depending_compatibilities"`
-	CopyleftClause           bool            `json:"copyleftClause" db:"copyleft_clause"`
-	PatentHints              bool            `json:"patentHints" db:"patent_hints"`
-	UseCases                 JSONStringSlice `json:"useCases" db:"use_cases"`
+	ID                       string         `json:"id" db:"id"`
+	Compatibilities          pq.StringArray `json:"compatibilities" db:"compatibilities"`
+	Incompatibilities        pq.StringArray `json:"incompatibilities" db:"incompatibilities"`
+	DependingCompatibilities pq.StringArray `json:"dependingCompatibilities" db:"depending_compatibilities"`
+	CopyleftClause           YesNoBool      `json:"copyleftClause" db:"copyleft_clause"`
+	PatentHints              YesNoBool      `json:"patentHints" db:"patent_hints"`
+	UseCases                 pq.StringArray `json:"useCases" db:"use_cases"`
 }
 
 // NewOSADLModel create a new instance of the OSADL Model.
@@ -90,7 +74,7 @@ func (m *OSADLModel) GetOSADLByLicenseID(ctx context.Context, s *zap.SugaredLogg
 	var osadl OSADL
 	s.Debugf("LicenseDetail ID: %v", licenseIDToUpper)
 	err = conn.QueryRowxContext(ctx,
-		"SELECT * FROM osadl WHERE UPPER(license_id) = $1", licenseIDToUpper).StructScan(&osadl)
+		"SELECT * FROM osadl WHERE UPPER(id) = $1", licenseIDToUpper).StructScan(&osadl)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.Errorf("Error: Failed to query 'osadl' table for %v: %#v", licenseIDToUpper, err)
 		return OSADL{}, fmt.Errorf("failed to query the 'osadl' table: %v", err)
