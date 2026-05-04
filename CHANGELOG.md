@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-07
+- Fixed `licenses/details` endpoint
+
 ## [0.3.0] - 2026-04-20
 ### Fixed
 - Fixed `is_spdx_approved` being set to `true` for licenses whose details could not be found in the SPDX cache; the flag is now only set when the cache actually returns details.
@@ -74,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default ports: REST `40057`, gRPC `50057`, and logging `66057`
 
 
+[0.3.1]: https://github.com/scanoss/licenses/releases/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/scanoss/licenses/releases/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/scanoss/licenses/releases/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/scanoss/licenses/releases/compare/v0.1.0...v0.2.0
