@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-22
+### Added
+- `/health` liveness endpoint (GET) on the REST gateway
+### Changed
+- Upgraded `scanoss/go-grpc-helper` to `v0.16.0`
+
 ## [0.3.1] - 2026-05-07
 - Fixed `licenses/details` endpoint
 
