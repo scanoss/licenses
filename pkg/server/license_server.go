@@ -13,7 +13,13 @@ import (
 )
 
 type LicenseServer struct {
-	pb.LicenseServer
+	// Embedding the generated Unimplemented struct, not the LicenseServer
+	// interface. The interface value is nil, so any method the service does not
+	// implement dereferences it and panics, taking the whole process down - and
+	// two of the five are unimplemented here (Echo, GetObligations), so a single
+	// unauthenticated call was enough. The struct answers those with an
+	// Unimplemented error instead, and keeps doing so as papi grows new methods.
+	pb.UnimplementedLicenseServer
 	config  *myconfig.ServerConfig
 	handler *handler.LicenseHandler
 	db      *sqlx.DB
