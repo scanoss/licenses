@@ -428,18 +428,21 @@ func TestLicenseHandler_GetDetails(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
 	config := &myconfig.ServerConfig{}
-	content, err := os.ReadFile("../model/tests/licenses.sql")
-	if err != nil {
-		t.Fatalf("Error reading SQL file: %v", err)
-	}
 	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer models.CloseDB(db)
-	_, err = db.Exec(string(content))
+	// The fixtures carry data only; the serving schema comes from the models package.
+	if err = models.LoadTestSchema(db, context.Background()); err != nil {
+		t.Fatalf("failed to load the test schema: %v", err)
+	}
+	content, err := os.ReadFile("../model/tests/license.sql")
 	if err != nil {
 		t.Fatalf("Error reading SQL file: %v", err)
+	}
+	if _, err = db.Exec(string(content)); err != nil {
+		t.Fatalf("Error loading SQL file: %v", err)
 	}
 	handler := NewLicenseHandler(config, db, nil)
 	ctx := ctxzap.ToContext(context.Background(), zap.NewNop())

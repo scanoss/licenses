@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2025 SCANOSS.COM
+ * Copyright (C) 2018-2025 SCANOSS.COM
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
 )
 
+// PurlLicensesModel reads the licences recorded against a component's releases.
+//
+// The mining table was `purl_licenses(purl, version, date, source_id, license_id)`,
+// keyed by the purl string. Serving keys them by the component's purl_id in
+// `component_version_license(purl_id, version, license_id, source)`, so every
+// lookup takes a resolved purl_id rather than a purl.
+//
+// Two columns behave differently and the callers should know:
+//   - there is no `date`; the field is kept on the struct (nothing reads it) and
+//     comes back empty;
+//   - `source` is currently 0 on every row of the serving export, so the
+//     source-priority resolution the service performs always settles on the
+//     first configured source. The filtering is kept as-is: it is correct code
+//     against a column the export is expected to populate.
 type PurlLicensesModel struct {
 	db *sqlx.DB
 }
@@ -42,155 +55,115 @@ func NewPurlLicensesModel(db *sqlx.DB) *PurlLicensesModel {
 	return &PurlLicensesModel{db: db}
 }
 
-func (m *PurlLicensesModel) GetLicensesByPurlVersion(ctx context.Context, purl, version string) ([]PurlLicense, error) {
-	s := ctxzap.Extract(ctx).Sugar()
-	if len(purl) == 0 || len(version) == 0 {
-		s.Error("Please specify a valid purl and version to query")
-		return nil, errors.New("please specify a valid purl and version to query")
-	}
+// licenseSelect is the projection every lookup shares. `date` is selected as a
+// literal because the serving schema does not record one.
+const licenseSelect = `SELECT c.purl AS purl, cvl.version AS version, '' AS date,
+	cvl.source     AS source_id,
+	cvl.license_id AS license_id
+FROM component_version_license cvl
+INNER JOIN component c ON c.purl_id = cvl.purl_id
+WHERE cvl.purl_id = ?`
 
+// GetLicensesByPurlIDVersion returns every licence recorded for one release.
+func (m *PurlLicensesModel) GetLicensesByPurlIDVersion(ctx context.Context, purlID, version string) ([]PurlLicense, error) {
+	s := ctxzap.Extract(ctx).Sugar()
+	if len(purlID) == 0 || len(version) == 0 {
+		s.Error("Please specify a valid component and version to query")
+		return nil, errors.New("please specify a valid component and version to query")
+	}
 	var purlLicenses []PurlLicense
 	err := m.db.SelectContext(ctx, &purlLicenses,
-		"SELECT purl, version, date, source_id, license_id FROM purl_licenses WHERE purl = $1 AND version = $2",
-		purl, version)
+		m.db.Rebind(licenseSelect+" AND cvl.version = ?"), purlID, version)
 	if err != nil {
-		s.Errorf("Failed to query purl_licenses table for purl %v, version %v: %v", purl, version, err)
-		return nil, fmt.Errorf("failed to query the purl_licenses table: %v", err)
+		s.Errorf("Failed to query component licences for %v, version %v: %v", purlID, version, err)
+		return nil, fmt.Errorf("failed to query the component licences: %w", err)
 	}
-
-	s.Debugf("Found %v results for purl %v, version %v", len(purlLicenses), purl, version)
+	s.Debugf("Found %v results for %v, version %v", len(purlLicenses), purlID, version)
 	return purlLicenses, nil
 }
 
-func (m *PurlLicensesModel) GetLicensesByPurlVersionAndSource(ctx context.Context, purl, version string, sourceID []int16) ([]PurlLicense, error) {
+// GetLicensesByPurlIDVersionAndSource returns one release's licences, restricted
+// to the given sources.
+func (m *PurlLicensesModel) GetLicensesByPurlIDVersionAndSource(ctx context.Context, purlID, version string, sourceID []int16) ([]PurlLicense, error) {
 	s := ctxzap.Extract(ctx).Sugar()
-
-	if len(purl) == 0 || len(version) == 0 {
-		s.Error("Please specify a valid purl and version to query")
-		return nil, errors.New("please specify a valid purl and version to query")
+	if len(purlID) == 0 || len(version) == 0 {
+		s.Error("Please specify a valid component and version to query")
+		return nil, errors.New("please specify a valid component and version to query")
 	}
-
 	if len(sourceID) == 0 {
 		s.Error("Please specify at least one source_id to query")
 		return nil, errors.New("please specify at least one source_id to query")
 	}
-
-	args := []interface{}{purl, version}
-	sourcePlaceholders := make([]string, len(sourceID))
-	for i, id := range sourceID {
-		sourcePlaceholders[i] = fmt.Sprintf("$%d", i+3)
-		args = append(args, id)
-	}
-
-	query := fmt.Sprintf(
-		"SELECT purl, version, date, source_id, license_id FROM purl_licenses "+
-			"WHERE purl = $1 AND version = $2 AND source_id IN (%s)",
-		strings.Join(sourcePlaceholders, ","),
-	)
-
-	var purlLicenses []PurlLicense
-	err := m.db.SelectContext(ctx, &purlLicenses, query, args...)
+	query, args, err := sqlx.In(licenseSelect+" AND cvl.version = ? AND cvl.source IN (?)", purlID, version, sourceID)
 	if err != nil {
-		s.Errorf("Failed to query purl_licenses table for purl %v, version %v, source_ids %v: %v", purl, version, sourceID, err)
-		return nil, fmt.Errorf("failed to query the purl_licenses table: %v", err)
+		return nil, fmt.Errorf("failed to build the component licences query: %w", err)
 	}
-	s.Debugf("Found %v results for purl %v, version %v, source_ids %v", len(purlLicenses), purl, version, sourceID)
+	var purlLicenses []PurlLicense
+	if err = m.db.SelectContext(ctx, &purlLicenses, m.db.Rebind(query), args...); err != nil {
+		s.Errorf("Failed to query component licences for %v, version %v, source_ids %v: %v", purlID, version, sourceID, err)
+		return nil, fmt.Errorf("failed to query the component licences: %w", err)
+	}
+	s.Debugf("Found %v results for %v, version %v, source_ids %v", len(purlLicenses), purlID, version, sourceID)
 	return purlLicenses, nil
 }
 
-// GetLicensesByPurlVersionsAndSource retrieves license data for a purl across multiple versions with source filtering.
-func (m *PurlLicensesModel) GetLicensesByPurlVersionsAndSource(ctx context.Context, purl string, versions []string, sourceID []int16) ([]PurlLicense, error) {
+// GetLicensesByPurlIDVersionsAndSource returns the licences of several releases
+// of one component, restricted to the given sources. The package-level aggregate
+// (the empty version) is excluded, as it was in mining.
+func (m *PurlLicensesModel) GetLicensesByPurlIDVersionsAndSource(ctx context.Context, purlID string, versions []string, sourceID []int16) ([]PurlLicense, error) {
 	s := ctxzap.Extract(ctx).Sugar()
-
-	if len(purl) == 0 {
-		s.Error("Please specify a valid purl to query")
-		return nil, errors.New("please specify a valid purl to query")
+	if len(purlID) == 0 {
+		s.Error("Please specify a valid component to query")
+		return nil, errors.New("please specify a valid component to query")
 	}
-
 	if len(versions) == 0 {
 		s.Error("Please specify at least one version to query")
 		return nil, errors.New("please specify at least one version to query")
 	}
-
 	if len(sourceID) == 0 {
 		s.Error("Please specify at least one source_id to query")
 		return nil, errors.New("please specify at least one source_id to query")
 	}
-
-	args := []interface{}{purl}
-	paramIdx := 2
-
-	// Build IN clause for versions
-	versionPlaceholders := make([]string, len(versions))
-	for i, v := range versions {
-		versionPlaceholders[i] = fmt.Sprintf("$%d", paramIdx)
-		args = append(args, v)
-		paramIdx++
-	}
-
-	// Build IN clause for source_ids
-	sourcePlaceholders := make([]string, len(sourceID))
-	for i, id := range sourceID {
-		sourcePlaceholders[i] = fmt.Sprintf("$%d", paramIdx)
-		args = append(args, id)
-		paramIdx++
-	}
-
-	query := fmt.Sprintf(
-		"SELECT purl, version, date, source_id, license_id FROM purl_licenses "+
-			"	WHERE purl = $1 AND version IN (%s) AND source_id IN (%s)"+
-			"	AND version != ''",
-		strings.Join(versionPlaceholders, ","),
-		strings.Join(sourcePlaceholders, ","),
-	)
-
-	var purlLicenses []PurlLicense
-	err := m.db.SelectContext(ctx, &purlLicenses, query, args...)
+	query, args, err := sqlx.In(
+		licenseSelect+" AND cvl.version IN (?) AND cvl.source IN (?) AND cvl.version <> ''",
+		purlID, versions, sourceID)
 	if err != nil {
-		s.Errorf("Failed to query purl_licenses table for purl %v, versions count %d, source_ids %v: %v", purl, len(versions), sourceID, err)
-		return nil, fmt.Errorf("failed to query the purl_licenses table: %v", err)
+		return nil, fmt.Errorf("failed to build the component licences query: %w", err)
 	}
-
-	s.Debugf("Found %v results for purl %v across %d versions, source_ids %v", len(purlLicenses), purl, len(versions), sourceID)
+	var purlLicenses []PurlLicense
+	if err = m.db.SelectContext(ctx, &purlLicenses, m.db.Rebind(query), args...); err != nil {
+		s.Errorf("Failed to query component licences for %v, %d versions, source_ids %v: %v", purlID, len(versions), sourceID, err)
+		return nil, fmt.Errorf("failed to query the component licences: %w", err)
+	}
+	s.Debugf("Found %v results for %v across %d versions, source_ids %v", len(purlLicenses), purlID, len(versions), sourceID)
 	return purlLicenses, nil
 }
 
-// GetLicensesByUnversionedPurlAndSource retrieves license data from unversioned purl with source filtering.
-func (m *PurlLicensesModel) GetLicensesByUnversionedPurlAndSource(ctx context.Context, purl string, sourceID []int16) ([]PurlLicense, error) {
+// GetLicensesByUnversionedPurlIDAndSource returns the component-level licences:
+// the rows serving stores against the empty version, which is the package-level
+// aggregate rather than any particular release.
+func (m *PurlLicensesModel) GetLicensesByUnversionedPurlIDAndSource(ctx context.Context, purlID string, sourceID []int16) ([]PurlLicense, error) {
 	s := ctxzap.Extract(ctx).Sugar()
-
-	if len(purl) == 0 {
-		s.Error("Please specify a valid purl to query")
-		return nil, errors.New("please specify a valid purl to query")
+	if len(purlID) == 0 {
+		s.Error("Please specify a valid component to query")
+		return nil, errors.New("please specify a valid component to query")
 	}
-
 	if len(sourceID) == 0 {
 		s.Error("Please specify at least one source_id to query")
 		return nil, errors.New("please specify at least one source_id to query")
 	}
-
-	// Build IN clause dynamically for multiple source_ids
-	placeholders := make([]string, len(sourceID))
-	args := []interface{}{purl}
-
-	for i, id := range sourceID {
-		placeholders[i] = fmt.Sprintf("$%d", i+2) // $2, $3, $4, etc.
-		args = append(args, id)
-	}
-
-	query := fmt.Sprintf(`
-		SELECT purl, version, date, source_id, license_id 
-		FROM purl_licenses 
-		WHERE purl = $1 AND (version = '' OR version IS NULL) AND source_id IN (%s)
-		ORDER BY source_id, license_id`, strings.Join(placeholders, ","))
-
-	var purlLicenses []PurlLicense
-	err := m.db.SelectContext(ctx, &purlLicenses, query, args...)
+	query, args, err := sqlx.In(
+		licenseSelect+" AND (cvl.version = '' OR cvl.version IS NULL) AND cvl.source IN (?)"+
+			" ORDER BY cvl.source, cvl.license_id",
+		purlID, sourceID)
 	if err != nil {
-		s.Errorf("Failed to query unversioned license data for purl %v, source_ids %v: %v", purl, sourceID, err)
-		return nil, fmt.Errorf("failed to query unversioned license data: %v", err)
+		return nil, fmt.Errorf("failed to build the component licences query: %w", err)
 	}
-
-	s.Debugf("Found %v unversioned license results for purl %v, source_ids %v", len(purlLicenses), purl, sourceID)
+	var purlLicenses []PurlLicense
+	if err = m.db.SelectContext(ctx, &purlLicenses, m.db.Rebind(query), args...); err != nil {
+		s.Errorf("Failed to query unversioned licences for %v, source_ids %v: %v", purlID, sourceID, err)
+		return nil, fmt.Errorf("failed to query unversioned licence data: %w", err)
+	}
+	s.Debugf("Found %v unversioned licence results for %v, source_ids %v", len(purlLicenses), purlID, sourceID)
 	return purlLicenses, nil
 }

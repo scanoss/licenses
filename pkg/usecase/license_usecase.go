@@ -23,6 +23,7 @@ import (
 	"scanoss.com/licenses/pkg/dto"
 	"scanoss.com/licenses/pkg/license"
 	models "scanoss.com/licenses/pkg/model"
+	"scanoss.com/licenses/pkg/resolver"
 )
 
 type LicenseUseCase struct {
@@ -32,6 +33,8 @@ type LicenseUseCase struct {
 	licenseDetailModel models.LicenseDetailModelInterface
 	osadlModel         models.OSADLModelInterface
 	spdxLicenseCache   cache.SPDXLicenseCacheInterface
+	licenseRegistry    *models.LicenseRegistryModel
+	resolver           *resolver.Resolver
 	db                 *sqlx.DB
 }
 
@@ -43,6 +46,8 @@ func NewLicenseUseCase(config *myconfig.ServerConfig, db *sqlx.DB, spdxCache cac
 		purlLicenseModel:   models.NewPurlLicensesModel(db),
 		osadlModel:         models.NewOSADLModel(db),
 		spdxLicenseCache:   spdxCache,
+		licenseRegistry:    models.NewLicenseRegistryModel(db),
+		resolver:           resolver.New(nil, db),
 		db:                 db,
 	}
 }
@@ -72,9 +77,9 @@ func (lu LicenseUseCase) GetComponentLicense(ctx context.Context, dto componenth
 
 // componentsLicenseWorker resolves licenses for the given components concurrently
 // using a bounded worker pool (Lookup.MaxWorkers). Honors ctx cancellation.
-func (lu LicenseUseCase) componentsLicenseWorker(ctx context.Context, s *zap.SugaredLogger, components []componenthelper.Component) []*pb.ComponentLicenseInfo {
+func (lu LicenseUseCase) componentsLicenseWorker(ctx context.Context, s *zap.SugaredLogger, components []resolver.Resolution) []*pb.ComponentLicenseInfo {
 	componentLicenses := make([]*pb.ComponentLicenseInfo, 0, len(components))
-	jobs := make(chan componenthelper.Component, len(components))
+	jobs := make(chan resolver.Resolution, len(components))
 	results := make(chan *pb.ComponentLicenseInfo, len(components))
 	for _, c := range components {
 		jobs <- c
@@ -117,15 +122,9 @@ func (lu LicenseUseCase) componentsLicenseWorker(ctx context.Context, s *zap.Sug
 // GetComponentsLicense retrieves license info for multiple components.
 func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs []componenthelper.ComponentDTO) ([]*pb.ComponentLicenseInfo, *Error) {
 	s := ctxzap.Extract(ctx).Sugar()
-	processedComponents := componenthelper.GetComponentsVersion(componenthelper.ComponentVersionCfg{
-		MaxWorkers: lu.config.Lookup.MaxWorkers,
-		DB:         lu.db,
-		Ctx:        ctx,
-		S:          s,
-		Input:      componentDTOs,
-	})
+	processedComponents := resolver.ResolveComponents(ctx, s, lu.resolver, componentDTOs, lu.config.Lookup.MaxWorkers)
 	failedResults := make([]*pb.ComponentLicenseInfo, 0, len(processedComponents))
-	var toProcess []componenthelper.Component
+	var toProcess []resolver.Resolution
 	for _, c := range processedComponents {
 		if c.Status.StatusCode != domain.Success && c.Status.StatusCode != domain.VersionNotFound {
 			msg := c.Status.Message
@@ -151,7 +150,7 @@ func (lu LicenseUseCase) GetComponentsLicense(ctx context.Context, componentDTOs
 }
 
 func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.SugaredLogger,
-	c componenthelper.Component) *pb.ComponentLicenseInfo {
+	c resolver.Resolution) *pb.ComponentLicenseInfo {
 	componentInfo := &pb.ComponentLicenseInfo{
 		Purl:        c.OriginalPurl,
 		Requirement: c.OriginalRequirement,
@@ -163,7 +162,7 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 
 	// Step 1: Try to fetch licenses for the exact resolved version (e.g. "1.2.3").
 	if version != "" {
-		purlLicenses = lu.fetchLicensesByPurlAndVersion(ctx, s, c.Purl, version)
+		purlLicenses = lu.fetchLicensesByPurlAndVersion(ctx, s, c.PurlID, version)
 	}
 
 	// Step 2: If no licenses were found for the exact version and there are known versions available,
@@ -184,7 +183,7 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 			})
 		}
 		if len(candidateVersions) > 0 {
-			nearestLicenses, nearestVersion := lu.fetchLicensesByPurlAndVersions(ctx, s, c.Purl, requirement, candidateVersions)
+			nearestLicenses, nearestVersion := lu.fetchLicensesByPurlAndVersions(ctx, s, c.PurlID, requirement, candidateVersions)
 			if len(nearestLicenses) > 0 {
 				purlLicenses = nearestLicenses
 				version = nearestVersion
@@ -205,7 +204,7 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 	// Step 3: Last resort — try fetching licenses from the unversioned purl entry.
 	if len(purlLicenses) == 0 {
 		s.Infof("no purlLicenses data found for purl=%s version=%s. Trying unversioned purl", c.Purl, version)
-		purlLicenses = lu.fetchLicensesByPurl(ctx, s, c.Purl, lu.config.Lookup.SourcePriority)
+		purlLicenses = lu.fetchLicensesByPurl(ctx, s, c.PurlID, lu.config.Lookup.SourcePriority)
 		version = ""
 		code := domain.VersionNotFound.String()
 		message := "Retrieving licenses for unversioned component"
@@ -264,10 +263,10 @@ func (lu LicenseUseCase) processComponentLicenses(ctx context.Context, s *zap.Su
 // fetchLicensesByPurlAndVersion retrieves licenses for a specific purl and version,
 // returning rows from the highest-priority configured source that has data for that version.
 func (lu LicenseUseCase) fetchLicensesByPurlAndVersion(ctx context.Context, s *zap.SugaredLogger,
-	purl, version string) []models.PurlLicense {
-	allLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionAndSource(ctx, purl, version, lu.config.Lookup.SourcePriority)
+	purlID, version string) []models.PurlLicense {
+	allLicenses, err := lu.purlLicenseModel.GetLicensesByPurlIDVersionAndSource(ctx, purlID, version, lu.config.Lookup.SourcePriority)
 	if err != nil {
-		s.Warnf("error when querying GetLicensesByPurlVersionAndSource() for purl=%s version=%s: %v", purl, version, err)
+		s.Warnf("error when querying licences for component=%s version=%s: %v", purlID, version, err)
 		return nil
 	}
 	return license.PickLicensesByPriority(allLicenses, lu.config.Lookup.SourcePriority)
@@ -277,10 +276,10 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersion(ctx context.Context, s *z
 // and returns the licenses for the nearest version to the requirement. If multiple sources
 // have licenses for that version, the highest-priority source (per config) wins.
 func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *zap.SugaredLogger,
-	purl, requirement string, versions []string) ([]models.PurlLicense, string) {
-	allLicenses, err := lu.purlLicenseModel.GetLicensesByPurlVersionsAndSource(ctx, purl, versions, lu.config.Lookup.SourcePriority)
+	purlID, requirement string, versions []string) ([]models.PurlLicense, string) {
+	allLicenses, err := lu.purlLicenseModel.GetLicensesByPurlIDVersionsAndSource(ctx, purlID, versions, lu.config.Lookup.SourcePriority)
 	if err != nil {
-		s.Warnf("error when querying GetLicensesByPurlVersionsAndSource() for purl=%s: %v", purl, err)
+		s.Warnf("error when querying licences for component=%s: %v", purlID, err)
 		return nil, ""
 	}
 	if len(allLicenses) == 0 {
@@ -311,10 +310,10 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *
 
 // fetchLicensesByPurl retrieves licenses for an unversioned purl.
 func (lu LicenseUseCase) fetchLicensesByPurl(ctx context.Context, s *zap.SugaredLogger,
-	purl string, sourceID []int16) []models.PurlLicense {
-	purlLicenses, err := lu.purlLicenseModel.GetLicensesByUnversionedPurlAndSource(ctx, purl, sourceID)
+	purlID string, sourceID []int16) []models.PurlLicense {
+	purlLicenses, err := lu.purlLicenseModel.GetLicensesByUnversionedPurlIDAndSource(ctx, purlID, sourceID)
 	if err != nil {
-		s.Warnf("error when querying GetLicensesByUnversionedPurlAndSource() for purl=%s: %v", purl, err)
+		s.Warnf("error when querying unversioned licences for component=%s: %v", purlID, err)
 		return nil
 	}
 	return license.PickLicensesByPriority(purlLicenses, lu.config.Lookup.SourcePriority)
@@ -339,7 +338,7 @@ func (lu LicenseUseCase) resolveSPDXLicenses(ctx context.Context, s *zap.Sugared
 	allSpdxLicenses := make(map[string]bool)
 
 	for _, licenseID := range dedupLicensesIDs {
-		licenseRecord, err := lu.sc.Models.Licenses.GetLicenseByID(ctx, licenseID)
+		licenseRecord, err := lu.licenseRegistry.GetLicenseByID(ctx, licenseID)
 		if err != nil {
 			s.Warnf("error getting license by ID: %d. %v", licenseID, err)
 			continue

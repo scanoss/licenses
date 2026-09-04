@@ -2,14 +2,15 @@
   "App": {
     "Name": "License Service",
     "Debug": true,
-    "Mode":  "dev",
+    "Mode": "dev",
     "GRPCPort": "50057",
     "RESTPort": "40057"
   },
   "Database": {
-    "Driver": "postgres",
-    "Host":   "host.docker.internal",
-    "User":   "scanoss",
+    "Driver": "duckdb",
+    "Path": "/var/lib/scanoss/serving.duckdb",
+    "Host": "host.docker.internal",
+    "User": "scanoss",
     "Passwd": "secret123!",
     "Schema": "scanoss",
     "Trace": false

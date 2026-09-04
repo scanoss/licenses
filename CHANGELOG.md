@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The service now reads the serving knowledge base instead of the mining database.** The mining path is gone; there is no configuration that selects it. Endpoint routes and response shapes are unchanged
+- **Licences are keyed by `(purl_id, version)`.** The mining `purl_licenses` table carried the purl string on every row; serving records them in `component_version_license`, keyed by the component's UUID, so every lookup now takes a resolved `purl_id`. The purl is joined back into the result, so callers see what they saw before
+- **OSADL's three compatibility lists are read from their own tables.** Mining kept `compatibilities`, `incompatibilities` and `depending_compatibilities` as PostgreSQL arrays on the `osadl` row; serving normalises each into `OSADL_compat`, `OSADL_incompat` and `OSADL_depending`, which are read and reassembled into the same response
+- **The SPDX registry is `"SPDX_license_data"`** with renamed columns (`SPDX_id`, `is_deprecated`, `details_url`, `reference_number`, `is_osi_approved`), aliased back in the projection. The same 825 rows
+- Component and version resolution no longer goes through `go-component-helper`, which resolves against `all_urls`, `mines` and `versions` - none of which exist in the serving schema. It is replaced by `pkg/resolver`
+- Whether a licence is SPDX-approved is no longer a stored flag: mining's `licenses.is_spdx` has no serving equivalent, so it is derived the way the rest of the schema expresses it - the identifier appears in the SPDX registry
+- Binaries are built with `CGO_ENABLED=1`, and the runtime image moved to `debian:bookworm-slim` with `libstdc++6`. The DuckDB driver is a cgo binding, so a pure-Go build can no longer be produced
+
+### Added
+- **DuckDB support**, the intended production backend for the serving knowledge base. Set `DB_DRIVER=duckdb` and `DB_PATH` to the serving file, which is opened read-only
+- `pkg/db`, opening the serving database for any of duckdb, sqlite or postgres
+- `pkg/resolver`, the serving component resolution
+- `pkg/model/license_registry.go`, replacing two go-models calls that cannot work against serving: both query the mining `licenses` and `spdx_license_data` tables, which serving renames with different columns. The go-models result types are reused, so the SPDX cache and the licence lookup are unchanged apart from where they read from
+- `pkg/model/test_schema.go`, holding the serving schema the tests build their database from. The fixtures under `tests/` used to carry their own `CREATE TABLE` statements - the `osadl` one declared columns the production table does not have
+
+### Security
+- **An unauthenticated request could kill the server.** `LicenseServer` embedded the papi `LicenseServer` *interface* rather than the generated `UnimplementedLicenseServer`, and that field is nil, so any method the service does not implement dereferenced it and panicked, taking the whole process down. Two of the five - `Echo` and `GetObligations` - are unimplemented, so `POST /v2/licenses/echo` or `GET /v2/licenses/obligations` was enough. The generated struct answers those with an `Unimplemented` error instead. Pre-existing and unrelated to the serving migration
+
+### Removed
+- `pkg/model/ldb_component_licenses.go`. It queried the mining `ldb_component_licenses` table and nothing instantiated it
+- `date` is gone from the licence rows. The serving schema records none, so the field comes back empty; nothing read it
+
+### Deployment
+- **Breaking:** requires a serving knowledge base. Point `DB_PATH` at the `.duckdb` file and set `DB_DRIVER=duckdb`
+- **Serving carries the declared licence only.** `component_version_license.source` is `0` on all 205,234,732 rows, where mining's `purl_licenses` spread 374,115,789 rows across eight sources (0: 274M, 5: 53M, 3: 18M, 31: 17M, 33: 9.9M, plus 6/32/34). The detected licences from the other sources are deliberately out of scope, so a single source is the expected shape and `Lookup.SourcePriority` resolves on `0`. The filtering is kept as written rather than removed, so nothing has to be reintroduced if the export ever carries more sources
+- **Coverage checked per component**, not per version string: of 40 randomly sampled components that mining licenses under source 0, **36 have at least as many licensed versions in serving**, 2 have one fewer, and 2 have none - both `pkg:apk/*`, which exist in `component` but carry no `component_version` rows at all, so that is a version-coverage gap rather than a licence one
+- **Version strings differ between the two schemas, and a naive comparison will look like catastrophic loss.** Serving normalises them: mining's `v0.1.1` is `0.1.1`, and tag-shaped versions (`datahub-0.2.188`, `node-http2-0.0.6`, `OpenSSL_1_1_1a`) are rewritten entirely. Joining mining and serving on the exact version string reports most releases as missing when the component and its releases are both present under different spellings. Compare per component
+- `OSADL` has 121 rows against mining's 124
+- Verified against the production serving file (55.7 GiB): per-component licences, the batch endpoint, SPDX details including the `see_also` array and the reassembled OSADL block, and the 825-license SPDX cache
+- The Dockerfile was already broken before this change - it built `./cmd/server`, which does not exist, and named the binary `scanoss-dependencies`. It now builds `./cmd/licenses-api` as `scanoss-licenses`
+- `make build_arm` now cross-compiles with cgo and needs an `aarch64` toolchain (set `CC`); the amd64 build is unaffected
+
 ## [0.4.0] - 2026-06-22
 ### Added
 - `/health` liveness endpoint (GET) on the REST gateway

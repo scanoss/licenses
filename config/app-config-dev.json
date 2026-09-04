@@ -2,12 +2,13 @@
   "App": {
     "Name": "License Service",
     "Debug": true,
-    "Mode":  "prod",
+    "Mode": "prod",
     "GRPCPort": "50057",
     "RESTPort": "40057"
   },
   "Database": {
-    "Driver": "sqlite",
+    "Driver": "duckdb",
+    "Path": "/var/lib/scanoss/serving.duckdb",
     "Dsn": "/data/sqlite/licenses/licenses.sqlite?cache=shared&mode=memory",
     "Trace": false
   },

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2025 SCANOSS.COM
+ * Copyright (C) 2018-2025 SCANOSS.COM
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,108 +18,167 @@ package models
 
 import (
 	"context"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 	"testing"
+
+	"github.com/jmoiron/sqlx"
+	zlog "github.com/scanoss/zap-logging-helper/pkg/logger"
 )
 
-func TestPurlLicensesModel_GetLicensesByPurl(t *testing.T) {
-	err := zlog.NewSugaredDevLogger()
-	if err != nil {
+// The fixture's pkg:npm/express, which carries two sources on 4.18.2 and one on
+// 4.17.1 — enough to exercise the source filtering.
+const (
+	expressPurl = "pkg:npm/express"
+	expressID   = "eea6a5f0-ac07-5faa-86d6-42a1f88f80bd"
+)
+
+func setupLicenseModel(t *testing.T) (context.Context, *sqlx.DB, *PurlLicensesModel) {
+	t.Helper()
+	if err := zlog.NewSugaredDevLogger(); err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
 	}
-	defer zlog.SyncZap()
-	ctx := ctxzap.ToContext(context.Background(), zlog.L)
+	ctx := context.Background()
 	db := sqliteSetup(t)
-	defer CloseDB(db)
-
-	// Load test data
-	err = loadTestSQLDataFiles(db, ctx, []string{"tests/purl_licenses.sql"})
-	if err != nil {
+	if err := LoadTestSQLData(db, ctx); err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}
+	return ctx, db, NewPurlLicensesModel(db)
+}
 
-	model := NewPurlLicensesModel(db)
+func TestGetLicensesByPurlIDVersion(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
+	defer CloseDB(db)
+	defer zlog.SyncZap()
 
-	t.Run("GetExistingPurlLicenses", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurlVersion(ctx, "pkg:npm/express", "4.18.2")
+	t.Run("known release", func(t *testing.T) {
+		licenses, err := model.GetLicensesByPurlIDVersion(ctx, expressID, "4.18.2")
 		if err != nil {
-			t.Fatalf("Expected no error, got: %v", err)
+			t.Fatalf("GetLicensesByPurlIDVersion error = %v", err)
 		}
 		if len(licenses) != 2 {
-			t.Errorf("Expected 2 licenses, got: %v", len(licenses))
+			t.Fatalf("got %d licences, want 2", len(licenses))
 		}
-		if licenses[0].Purl != "pkg:npm/express" {
-			t.Errorf("Expected purl 'pkg:npm/express', got: %v", licenses[0].Purl)
-		}
-	})
-
-	t.Run("GetNonExistentPurlLicenses", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurlVersion(ctx, "pkg:npm/nonexistent", "1.0.0")
-		if err != nil {
-			t.Fatalf("Expected no error, got: %v", err)
-		}
-		if len(licenses) != 0 {
-			t.Errorf("Expected 0 licenses, got: %v", len(licenses))
-		}
-	})
-
-	t.Run("GetLicensesWithEmptyPurl", func(t *testing.T) {
-		_, err := model.GetLicensesByPurlVersion(ctx, "", "1.0.0")
-		if err == nil {
-			t.Error("Expected error for empty purl, got nil")
+		for _, l := range licenses {
+			// The purl is joined back in so callers keep seeing it, even though the
+			// lookup is keyed by purl_id now.
+			if l.Purl != expressPurl {
+				t.Errorf("purl = %q, want %q", l.Purl, expressPurl)
+			}
+			if l.Version != "4.18.2" {
+				t.Errorf("version = %q, want 4.18.2", l.Version)
+			}
+			// Serving records no date; the field stays empty rather than inventing one.
+			if l.Date != "" {
+				t.Errorf("date = %q, want empty: serving has no date column", l.Date)
+			}
 		}
 	})
 
-	t.Run("GetLicensesWithEmptyVersion", func(t *testing.T) {
-		_, err := model.GetLicensesByPurlVersion(ctx, "pkg:npm/test", "")
-		if err == nil {
-			t.Error("Expected error for empty version, got nil")
+	t.Run("unknown release or component", func(t *testing.T) {
+		for name, args := range map[string][2]string{
+			"unknown version":   {expressID, "9.9.9"},
+			"unknown component": {"00000000-0000-0000-0000-000000000000", "4.18.2"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				licenses, err := model.GetLicensesByPurlIDVersion(ctx, args[0], args[1])
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if len(licenses) != 0 {
+					t.Errorf("got %d licences, want none", len(licenses))
+				}
+			})
+		}
+	})
+
+	t.Run("empty arguments are rejected", func(t *testing.T) {
+		if _, err := model.GetLicensesByPurlIDVersion(ctx, "", "4.18.2"); err == nil {
+			t.Error("want an error for an empty component")
+		}
+		if _, err := model.GetLicensesByPurlIDVersion(ctx, expressID, ""); err == nil {
+			t.Error("want an error for an empty version")
 		}
 	})
 }
 
-func TestPurlLicensesModel_GetLicensesByPurlAndSource(t *testing.T) {
-	err := zlog.NewSugaredDevLogger()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
-	}
-	defer zlog.SyncZap()
-	ctx := ctxzap.ToContext(context.Background(), zlog.L)
-	db := sqliteSetup(t)
+// The source filter is what the service's priority resolution rests on, so it is
+// pinned here even though the production export currently writes 0 everywhere.
+func TestGetLicensesByPurlIDVersionAndSource(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
 	defer CloseDB(db)
+	defer zlog.SyncZap()
 
-	// Load test data
-	err = loadTestSQLDataFiles(db, ctx, []string{"tests/purl_licenses.sql"})
-	if err != nil {
-		t.Fatalf("failed to load SQL test data: %v", err)
-	}
-
-	model := NewPurlLicensesModel(db)
-
-	t.Run("GetExistingPurlLicensesBySource", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurlVersionAndSource(ctx, "pkg:npm/express", "4.18.2", []int16{1})
+	t.Run("one source of two", func(t *testing.T) {
+		licenses, err := model.GetLicensesByPurlIDVersionAndSource(ctx, expressID, "4.18.2", []int16{1})
 		if err != nil {
-			t.Fatalf("Expected no error, got: %v", err)
+			t.Fatalf("error = %v", err)
 		}
 		if len(licenses) != 1 {
-			t.Errorf("Expected 1 license, got: %v", len(licenses))
+			t.Fatalf("got %d licences, want 1", len(licenses))
 		}
 		if licenses[0].SourceID != 1 {
-			t.Errorf("Expected source_id 1, got: %v", licenses[0].SourceID)
-		}
-		if licenses[0].LicenseID != 5614 {
-			t.Errorf("Expected license_id 5614, got: %v", licenses[0].LicenseID)
+			t.Errorf("source_id = %d, want 1", licenses[0].SourceID)
 		}
 	})
 
-	t.Run("GetNonExistentSourceID", func(t *testing.T) {
-		licenses, err := model.GetLicensesByPurlVersionAndSource(ctx, "pkg:npm/express", "4.18.2", []int16{999})
+	t.Run("both sources", func(t *testing.T) {
+		licenses, err := model.GetLicensesByPurlIDVersionAndSource(ctx, expressID, "4.18.2", []int16{1, 2})
 		if err != nil {
-			t.Fatalf("Expected no error, got: %v", err)
+			t.Fatalf("error = %v", err)
 		}
-		if len(licenses) != 0 {
-			t.Errorf("Expected 0 licenses, got: %v", len(licenses))
+		if len(licenses) != 2 {
+			t.Errorf("got %d licences, want 2", len(licenses))
 		}
 	})
+
+	t.Run("a source with no rows", func(t *testing.T) {
+		licenses, err := model.GetLicensesByPurlIDVersionAndSource(ctx, expressID, "4.18.2", []int16{99})
+		if err != nil {
+			t.Fatalf("error = %v", err)
+		}
+		if len(licenses) != 0 {
+			t.Errorf("got %d licences, want none", len(licenses))
+		}
+	})
+
+	t.Run("no sources is rejected", func(t *testing.T) {
+		if _, err := model.GetLicensesByPurlIDVersionAndSource(ctx, expressID, "4.18.2", nil); err == nil {
+			t.Error("want an error when no source is given")
+		}
+	})
+}
+
+func TestGetLicensesByPurlIDVersionsAndSource(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
+	defer CloseDB(db)
+	defer zlog.SyncZap()
+
+	licenses, err := model.GetLicensesByPurlIDVersionsAndSource(ctx, expressID,
+		[]string{"4.18.2", "4.17.1"}, []int16{1, 2})
+	if err != nil {
+		t.Fatalf("error = %v", err)
+	}
+	if len(licenses) != 3 {
+		t.Fatalf("got %d licences, want 3 (two on 4.18.2, one on 4.17.1)", len(licenses))
+	}
+	byVersion := map[string]int{}
+	for _, l := range licenses {
+		byVersion[l.Version]++
+	}
+	if byVersion["4.18.2"] != 2 || byVersion["4.17.1"] != 1 {
+		t.Errorf("per-version counts = %v, want 4.18.2:2 4.17.1:1", byVersion)
+	}
+}
+
+// A missing table is a query failure, not an empty result.
+func TestPurlLicensesReportsQueryFailure(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
+	defer zlog.SyncZap()
+	if _, err := db.Exec("DROP TABLE component_version_license;"); err != nil {
+		t.Fatalf("failed to drop the table: %v", err)
+	}
+	defer CloseDB(db)
+
+	if _, err := model.GetLicensesByPurlIDVersion(ctx, expressID, "4.18.2"); err == nil {
+		t.Error("want an error once the table is gone")
+	}
 }

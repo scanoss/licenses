@@ -65,19 +65,51 @@ func NewOSADLModel(db *sqlx.DB) *OSADLModel {
 }
 
 // GetOSADLByLicenseID retrieves OSADL data by the given license ID.
+//
+// The mining `osadl` table kept the three compatibility lists as PostgreSQL text
+// arrays on the row. Serving normalises each into its own table - OSADL_compat,
+// OSADL_incompat and OSADL_depending - so they are read as three extra queries
+// and reassembled here. The table names are mixed-case and must stay quoted.
 func (m *OSADLModel) GetOSADLByLicenseID(ctx context.Context, s *zap.SugaredLogger, licenseID string) (OSADL, error) {
-	conn, err := NewConn(ctx, m.db)
-	if err != nil {
-		return OSADL{}, err
-	}
 	licenseIDToUpper := strings.ToUpper(licenseID)
-	var osadl OSADL
 	s.Debugf("LicenseDetail ID: %v", licenseIDToUpper)
-	err = conn.QueryRowxContext(ctx,
-		"SELECT * FROM osadl WHERE UPPER(id) = $1", licenseIDToUpper).StructScan(&osadl)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.Errorf("Error: Failed to query 'osadl' table for %v: %#v", licenseIDToUpper, err)
-		return OSADL{}, fmt.Errorf("failed to query the 'osadl' table: %v", err)
+
+	var row struct {
+		ID          string         `db:"id"`
+		Copyleft    sql.NullString `db:"copyleft"`
+		PatentHints sql.NullBool   `db:"patent_hints"`
+	}
+	err := m.db.GetContext(ctx, &row,
+		m.db.Rebind(`SELECT id, copyleft, patent_hints FROM "OSADL" WHERE UPPER(id) = ?`), licenseIDToUpper)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return OSADL{}, nil
+	case err != nil:
+		s.Errorf("Error: Failed to query 'OSADL' table for %v: %#v", licenseIDToUpper, err)
+		return OSADL{}, fmt.Errorf("failed to query the 'OSADL' table: %w", err)
+	}
+
+	osadl := OSADL{
+		ID:             row.ID,
+		CopyleftClause: YesNoBool(strings.EqualFold(row.Copyleft.String, "yes") || strings.EqualFold(row.Copyleft.String, "true")),
+		PatentHints:    YesNoBool(row.PatentHints.Bool),
+	}
+	lists := []struct {
+		table, column string
+		dest          *pq.StringArray
+	}{
+		{"OSADL_compat", "compat_id", &osadl.Compatibilities},
+		{"OSADL_incompat", "incompat_id", &osadl.Incompatibilities},
+		{"OSADL_depending", "depend_id", &osadl.DependingCompatibilities},
+	}
+	for _, l := range lists {
+		var values []string
+		q := m.db.Rebind(fmt.Sprintf(`SELECT %s FROM "%s" WHERE UPPER(id) = ? ORDER BY %s`, l.column, l.table, l.column))
+		if err = m.db.SelectContext(ctx, &values, q, licenseIDToUpper); err != nil {
+			s.Errorf("Error: Failed to query '%s' for %v: %#v", l.table, licenseIDToUpper, err)
+			return OSADL{}, fmt.Errorf("failed to query the '%s' table: %w", l.table, err)
+		}
+		*l.dest = values
 	}
 	return osadl, nil
 }

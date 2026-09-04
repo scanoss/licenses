@@ -38,7 +38,11 @@ func TestDbLoad(t *testing.T) {
 	}
 	defer CloseDB(db)
 	ctx := ctxzap.ToContext(context.Background(), zlog.L)
-	err = loadSQLData(db, ctx, "./tests/licenses.sql")
+	// The fixtures carry data only, so the schema has to exist first.
+	if err = LoadTestSchema(db, ctx); err != nil {
+		t.Fatalf("failed to load the test schema: %v", err)
+	}
+	err = loadSQLData(db, ctx, "./tests/license.sql")
 	if err != nil {
 		t.Errorf("failed to load SQL test data: %v", err)
 	}
