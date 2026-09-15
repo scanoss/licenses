@@ -53,6 +53,7 @@ var testDataFiles = []string{
 	"../model/tests/component.sql",
 	"../model/tests/component_version.sql",
 	"../model/tests/component_version_license.sql",
+	"../model/tests/component_license.sql",
 	"../model/tests/license.sql",
 	"../model/tests/spdx_license_data.sql",
 	"../model/tests/osadl.sql",

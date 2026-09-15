@@ -26,6 +26,11 @@ import (
 	"scanoss.com/licenses/pkg/resolver"
 )
 
+// declaredLicenceSource is source 0, the declared licence. It is the only source
+// the export populates - `component_version_license.source` is 0 on every row -
+// and the only one `component_license` can be, since it records no source at all.
+const declaredLicenceSource int16 = 0
+
 type LicenseUseCase struct {
 	config             *myconfig.ServerConfig
 	sc                 *scanoss.Client
@@ -269,7 +274,35 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersion(ctx context.Context, s *z
 		s.Warnf("error when querying licences for component=%s version=%s: %v", purlID, version, err)
 		return nil
 	}
-	return license.PickLicensesByPriority(allLicenses, lu.config.Lookup.SourcePriority)
+	if picked := license.PickLicensesByPriority(allLicenses, lu.config.Lookup.SourcePriority); picked != nil {
+		return picked
+	}
+	return lu.fetchPackageLicenses(ctx, s, purlID)
+}
+
+// fetchPackageLicenses is the last resort once no release has a licence: the
+// licence the export records against the component itself. Its rows carry no
+// version, so a caller that asked about one release is told the licence is the
+// component's, not that release's.
+//
+// It runs only when the configured priority list accepts declared licences, since
+// that is what these are; a deployment that asked for some other source only is not
+// handed a declared licence it did not want.
+func (lu LicenseUseCase) fetchPackageLicenses(ctx context.Context, s *zap.SugaredLogger,
+	purlID string) []models.PurlLicense {
+	if !slices.Contains(lu.config.Lookup.SourcePriority, declaredLicenceSource) {
+		return nil
+	}
+	packageLicenses, err := lu.purlLicenseModel.GetPackageLicensesByPurlID(ctx, purlID)
+	if err != nil {
+		s.Warnf("error when querying package licences for component=%s: %v", purlID, err)
+		return nil
+	}
+	if len(packageLicenses) > 0 {
+		s.Debugf("component=%s has no per-version licence; falling back to %d package-level licences",
+			purlID, len(packageLicenses))
+	}
+	return packageLicenses
 }
 
 // fetchLicensesByPurlAndVersions retrieves licenses across multiple versions for a purl
@@ -283,7 +316,7 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *
 		return nil, ""
 	}
 	if len(allLicenses) == 0 {
-		return nil, ""
+		return lu.fetchPackageLicenses(ctx, s, purlID), ""
 	}
 	// Index licenses by version once, so each loop iteration is an O(1) lookup
 	// instead of a linear scan over allLicenses.
@@ -305,7 +338,7 @@ func (lu LicenseUseCase) fetchLicensesByPurlAndVersions(ctx context.Context, s *
 			return v == nearestVersion
 		})
 	}
-	return nil, ""
+	return lu.fetchPackageLicenses(ctx, s, purlID), ""
 }
 
 // fetchLicensesByPurl retrieves licenses for an unversioned purl.
@@ -316,7 +349,10 @@ func (lu LicenseUseCase) fetchLicensesByPurl(ctx context.Context, s *zap.Sugared
 		s.Warnf("error when querying unversioned licences for component=%s: %v", purlID, err)
 		return nil
 	}
-	return license.PickLicensesByPriority(purlLicenses, lu.config.Lookup.SourcePriority)
+	if picked := license.PickLicensesByPriority(purlLicenses, lu.config.Lookup.SourcePriority); picked != nil {
+		return picked
+	}
+	return lu.fetchPackageLicenses(ctx, s, purlID)
 }
 
 // versionSatisfiesRequirement checks if a version satisfies a semver constraint/requirement.

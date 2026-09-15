@@ -182,3 +182,71 @@ func TestPurlLicensesReportsQueryFailure(t *testing.T) {
 		t.Error("want an error once the table is gone")
 	}
 }
+
+// serdeID is the fixture's pkg:cargo/serde: a component whose only licence is the
+// package-level one, as it is for the 8.9 million components the export records in
+// component_license and not in component_version_license.
+const serdeID = "3d9c7a14-2b6e-5f08-9c41-7ae0d5b12f63"
+
+func TestGetPackageLicensesByPurlID(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
+	defer CloseDB(db)
+	defer zlog.SyncZap()
+
+	t.Run("a component with no per-version licence", func(t *testing.T) {
+		licenses, err := model.GetPackageLicensesByPurlID(ctx, serdeID)
+		if err != nil {
+			t.Fatalf("GetPackageLicensesByPurlID error = %v", err)
+		}
+		want := []int32{109, 552}
+		if len(licenses) != len(want) {
+			t.Fatalf("got %d licences, want %d", len(licenses), len(want))
+		}
+		for i, l := range licenses {
+			if l.LicenseID != want[i] {
+				t.Errorf("licence[%d] = %d, want %d", i, l.LicenseID, want[i])
+			}
+			// The licence is the component's, not a release's. Reporting a version
+			// here would invent an attribution the table does not make.
+			if l.Version != "" {
+				t.Errorf("version = %q, want empty", l.Version)
+			}
+			if l.SourceID != 0 {
+				t.Errorf("source = %d, want 0 (declared)", l.SourceID)
+			}
+			if l.Purl != "pkg:cargo/serde" {
+				t.Errorf("purl = %q, want pkg:cargo/serde", l.Purl)
+			}
+		}
+	})
+
+	t.Run("an unknown component returns nothing", func(t *testing.T) {
+		licenses, err := model.GetPackageLicensesByPurlID(ctx, "00000000-0000-0000-0000-000000000000")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(licenses) != 0 {
+			t.Errorf("got %d licences, want none", len(licenses))
+		}
+	})
+
+	t.Run("an empty component is rejected", func(t *testing.T) {
+		if _, err := model.GetPackageLicensesByPurlID(ctx, ""); err == nil {
+			t.Error("want an error for an empty purl_id")
+		}
+	})
+}
+
+// A missing table is a query failure, not an empty result: a broken database must
+// not be mistaken for a component with no licence on record.
+func TestGetPackageLicensesReportsQueryFailure(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
+	defer CloseDB(db)
+	defer zlog.SyncZap()
+	if _, err := db.Exec("DROP TABLE component_license;"); err != nil {
+		t.Fatalf("failed to drop the table: %v", err)
+	}
+	if _, err := model.GetPackageLicensesByPurlID(ctx, serdeID); err == nil {
+		t.Error("want an error once the table is gone")
+	}
+}

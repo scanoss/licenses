@@ -8,3 +8,6 @@ INSERT INTO component (purl, vendor, component, purl_id, source_purl_id) VALUES 
 INSERT INTO component (purl, vendor, component, purl_id, source_purl_id) VALUES ('pkg:npm/lodash', NULL, NULL, '2c3f66b0-d870-5a65-b33f-103286472769', NULL);
 INSERT INTO component (purl, vendor, component, purl_id, source_purl_id) VALUES ('pkg:pypi/numpy', NULL, NULL, '07cd3fce-8d79-5510-a76e-6c741a92c8ce', NULL);
 INSERT INTO component (purl, vendor, component, purl_id, source_purl_id) VALUES ('pkg:pypi/requests', NULL, NULL, 'b2612508-69f0-5763-aca7-6c87ba8563a9', NULL);
+-- pkg:cargo/serde has no row in component_version_license: it stands for the 8.9
+-- million components whose only licence is the package-level one.
+INSERT INTO component (purl, vendor, component, purl_id, source_purl_id) VALUES ('pkg:cargo/serde', NULL, NULL, '3d9c7a14-2b6e-5f08-9c41-7ae0d5b12f63', NULL);

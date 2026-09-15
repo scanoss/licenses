@@ -47,6 +47,13 @@ CREATE INDEX idx_component_version_purl_id ON component_version (purl_id);
 CREATE TABLE component_version_license (purl_id TEXT, version TEXT, license_id INTEGER, source INTEGER);
 CREATE INDEX idx_component_version_license ON component_version_license (purl_id, version);
 
+-- A component's licence with no release attached, and no source column: everything
+-- recorded here is declared. It covers every component in the export, where
+-- component_version_license covers about two thirds of them, so it answers the
+-- components that have no per-release licence at all.
+CREATE TABLE component_license (purl_id TEXT, license_id INTEGER);
+CREATE INDEX idx_component_license_purl_id ON component_license (purl_id);
+
 -- The licence catalogue, mining's "licenses". There is no is_spdx flag: a licence
 -- is SPDX when its identifier appears in SPDX_license_data.
 CREATE TABLE license (id INTEGER, long_name TEXT, SPDX TEXT, content TEXT);

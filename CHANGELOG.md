@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binaries are built with `CGO_ENABLED=1`, and the runtime image moved to `debian:bookworm-slim` with `libstdc++6`. The DuckDB driver is a cgo binding, so a pure-Go build can no longer be produced
 
 ### Added
+- **A package-level licence fallback.** When no release of a component has a licence, the lookup falls to `component_license`, the export's per-component licence table. `component_version_license` covers 22,849,935 components and `component_license` covers all 31,761,182, so 8,911,247 components - 28% - have a licence recorded there and nowhere else, and used to be answered as having none. Its rows carry an empty version, because the licence genuinely is not attributed to a release; reporting the requested version would invent an attribution the database does not make. It runs only when `Lookup.SourcePriority` includes source 0, since everything `component_license` records is declared
 - **DuckDB support**, the intended production backend for the serving knowledge base. Set `DB_DRIVER=duckdb` and `DB_PATH` to the serving file, which is opened read-only
 - `pkg/db`, opening the serving database for any of duckdb, sqlite or postgres
 - `pkg/resolver`, the serving component resolution
@@ -36,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Coverage checked per component**, not per version string: of 40 randomly sampled components that mining licenses under source 0, **36 have at least as many licensed versions in serving**, 2 have one fewer, and 2 have none - both `pkg:apk/*`, which exist in `component` but carry no `component_version` rows at all, so that is a version-coverage gap rather than a licence one
 - **Version strings differ between the two schemas, and a naive comparison will look like catastrophic loss.** Serving normalises them: mining's `v0.1.1` is `0.1.1`, and tag-shaped versions (`datahub-0.2.188`, `node-http2-0.0.6`, `OpenSSL_1_1_1a`) are rewritten entirely. Joining mining and serving on the exact version string reports most releases as missing when the component and its releases are both present under different spellings. Compare per component
 - `OSADL` has 121 rows against mining's 124
-- Verified against the production serving file (55.7 GiB): per-component licences, the batch endpoint, SPDX details including the `see_also` array and the reassembled OSADL block, and the 825-license SPDX cache
+- **The export added tables that are still empty:** `detected_license`, `notices`, `LicenseComplexExpression` and `component_version_attribution` all exist with 0 rows. `OSADL_usecase` (219 rows) is populated and has no field in the papi contract
+- Verified against the production serving file (72.6 GiB): per-component licences, the batch endpoint, SPDX details including the `see_also` array and the reassembled OSADL block, and the 825-license SPDX cache. The package-level fallback was re-verified against the updated file: `pkg:github/commonroad/sandra` has no per-version licence and is answered from `component_license`, while `pkg:npm/express` keeps its per-release ones
 - The Dockerfile was already broken before this change - it built `./cmd/server`, which does not exist, and named the binary `scanoss-dependencies`. It now builds `./cmd/licenses-api` as `scanoss-licenses`
 - `make build_arm` now cross-compiles with cgo and needs an `aarch64` toolchain (set `CC`); the amd64 build is unaffected
 

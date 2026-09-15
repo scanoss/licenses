@@ -139,6 +139,49 @@ func (m *PurlLicensesModel) GetLicensesByPurlIDVersionsAndSource(ctx context.Con
 	return purlLicenses, nil
 }
 
+// packageLicenseSelect reads the component-level licences from `component_license`,
+// the table that records a component's licence without attributing it to a release.
+//
+// Version and source are selected as literals because the table has neither: the
+// row is the component's licence, not a release's, and everything the export
+// records as a licence is declared (source 0 - `component_version_license.source`
+// is 0 on all 205 million of its rows).
+//
+// This is a fallback, not a source in its own right. `component_version_license`
+// covers 22.8 million components and `component_license` covers all 31.8 million,
+// so 8.9 million components have a licence here and nowhere else; without this they
+// answer "no licence found" when one is on record.
+const packageLicenseSelect = `SELECT c.purl AS purl, '' AS version, '' AS date,
+	0            AS source_id,
+	cl.license_id AS license_id
+FROM component_license cl
+INNER JOIN component c ON c.purl_id = cl.purl_id
+WHERE cl.purl_id = ?
+ORDER BY cl.license_id`
+
+// GetPackageLicensesByPurlID returns a component's licences as recorded against the
+// component rather than any release.
+//
+// Callers use it only once a version lookup has come back empty, so a component
+// with per-release licences keeps reporting those, with their versions intact. The
+// rows it returns carry an empty version, because the licence genuinely is not
+// attributed to one - reporting the requested version would invent an attribution
+// the database does not make.
+func (m *PurlLicensesModel) GetPackageLicensesByPurlID(ctx context.Context, purlID string) ([]PurlLicense, error) {
+	s := ctxzap.Extract(ctx).Sugar()
+	if len(purlID) == 0 {
+		s.Error("Please specify a valid component to query")
+		return nil, errors.New("please specify a valid component to query")
+	}
+	var purlLicenses []PurlLicense
+	if err := m.db.SelectContext(ctx, &purlLicenses, m.db.Rebind(packageLicenseSelect), purlID); err != nil {
+		s.Errorf("Failed to query package licences for %v: %v", purlID, err)
+		return nil, fmt.Errorf("failed to query the package licences: %w", err)
+	}
+	s.Debugf("Found %v package-level licence results for %v", len(purlLicenses), purlID)
+	return purlLicenses, nil
+}
+
 // GetLicensesByUnversionedPurlIDAndSource returns the component-level licences:
 // the rows serving stores against the empty version, which is the package-level
 // aggregate rather than any particular release.
