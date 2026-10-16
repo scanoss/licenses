@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/jmoiron/sqlx"
@@ -41,6 +43,13 @@ import (
 //     against a column the export is expected to populate.
 type PurlLicensesModel struct {
 	db *sqlx.DB
+
+	// packageTable records whether `component_license` exists, once known. The
+	// export dropped it in the 2026-10-16 build; without this every lookup that
+	// reached the fallback logged a Catalog Error.
+	packageTableMu    sync.Mutex
+	packageTableKnown bool
+	packageTable      bool
 }
 
 type PurlLicense struct {
@@ -173,6 +182,9 @@ func (m *PurlLicensesModel) GetPackageLicensesByPurlID(ctx context.Context, purl
 		s.Error("Please specify a valid component to query")
 		return nil, errors.New("please specify a valid component to query")
 	}
+	if !m.hasPackageLicenseTable(ctx) {
+		return nil, nil
+	}
 	var purlLicenses []PurlLicense
 	if err := m.db.SelectContext(ctx, &purlLicenses, m.db.Rebind(packageLicenseSelect), purlID); err != nil {
 		s.Errorf("Failed to query package licences for %v: %v", purlID, err)
@@ -209,4 +221,39 @@ func (m *PurlLicensesModel) GetLicensesByUnversionedPurlIDAndSource(ctx context.
 	}
 	s.Debugf("Found %v unversioned licence results for %v, source_ids %v", len(purlLicenses), purlID, sourceID)
 	return purlLicenses, nil
+}
+
+// hasPackageLicenseTable reports whether the export carries `component_license`.
+//
+// It probes once and remembers the answer only when the probe is conclusive: a
+// missing-table error means the fallback has nothing to read, while any other
+// failure is treated as transient and the probe runs again next time, so a
+// momentary error cannot switch the fallback off for the life of the process.
+func (m *PurlLicensesModel) hasPackageLicenseTable(ctx context.Context) bool {
+	m.packageTableMu.Lock()
+	defer m.packageTableMu.Unlock()
+	if m.packageTableKnown {
+		return m.packageTable
+	}
+	var probe []int
+	err := m.db.SelectContext(ctx, &probe, "SELECT 1 FROM component_license LIMIT 1")
+	switch {
+	case err == nil:
+		m.packageTableKnown, m.packageTable = true, true
+	case isMissingTable(err):
+		ctxzap.Extract(ctx).Sugar().Warnf("component_license is not in this database; " +
+			"the package-level licence fallback is disabled")
+		m.packageTableKnown, m.packageTable = true, false
+	default:
+		return false
+	}
+	return m.packageTable
+}
+
+// isMissingTable recognises the missing-table error of the engines the service
+// runs on: DuckDB ("Catalog Error: Table with name ... does not exist") and SQLite
+// ("no such table").
+func isMissingTable(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "Catalog Error: Table with name") || strings.Contains(msg, "no such table")
 }

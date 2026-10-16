@@ -239,14 +239,35 @@ func TestGetPackageLicensesByPurlID(t *testing.T) {
 
 // A missing table is a query failure, not an empty result: a broken database must
 // not be mistaken for a component with no licence on record.
-func TestGetPackageLicensesReportsQueryFailure(t *testing.T) {
+// TestGetPackageLicensesWithoutTheTable pins the export without component_license
+// (the 2026-10-16 build dropped it): the fallback finds nothing rather than failing,
+// so callers answer "no licence" instead of logging a Catalog Error per lookup.
+func TestGetPackageLicensesWithoutTheTable(t *testing.T) {
 	ctx, db, model := setupLicenseModel(t)
 	defer CloseDB(db)
 	defer zlog.SyncZap()
 	if _, err := db.Exec("DROP TABLE component_license;"); err != nil {
 		t.Fatalf("failed to drop the table: %v", err)
 	}
+	licenses, err := model.GetPackageLicensesByPurlID(ctx, serdeID)
+	if err != nil {
+		t.Errorf("want no error once the table is gone, got %v", err)
+	}
+	if len(licenses) != 0 {
+		t.Errorf("want no licences once the table is gone, got %d", len(licenses))
+	}
+}
+
+// TestGetPackageLicensesReportsQueryFailure pins that a table which exists but
+// cannot be queried is still an error, not mistaken for an absent one.
+func TestGetPackageLicensesReportsQueryFailure(t *testing.T) {
+	ctx, db, model := setupLicenseModel(t)
+	defer CloseDB(db)
+	defer zlog.SyncZap()
+	if _, err := db.Exec("ALTER TABLE component_license RENAME COLUMN license_id TO renamed;"); err != nil {
+		t.Fatalf("failed to break the table: %v", err)
+	}
 	if _, err := model.GetPackageLicensesByPurlID(ctx, serdeID); err == nil {
-		t.Error("want an error once the table is gone")
+		t.Error("want an error when the table exists but the query fails")
 	}
 }
