@@ -26,17 +26,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Echo and GetObligations are not implemented. What matters is that calling them
-// returns an error rather than panicking: the server used to embed the papi
+// GetObligations is not implemented. What matters is that calling it returns an
+// error rather than panicking: the server used to embed the papi
 // LicenseServer interface, whose nil value any unimplemented method dereferenced,
 // so one request took the whole process down.
 func TestUnimplementedMethodsReturnErrorsInsteadOfPanicking(t *testing.T) {
 	server := &LicenseServer{}
 	calls := map[string]func() error{
-		"Echo": func() error {
-			_, err := server.Echo(context.Background(), &common.EchoRequest{})
-			return err
-		},
 		"GetObligations": func() error {
 			_, err := server.GetObligations(context.Background(), &pb.LicenseRequest{})
 			return err
@@ -57,5 +53,16 @@ func TestUnimplementedMethodsReturnErrorsInsteadOfPanicking(t *testing.T) {
 				t.Errorf("status code = %v, want %v", got, codes.Unimplemented)
 			}
 		})
+	}
+}
+
+func TestEcho(t *testing.T) {
+	server := &LicenseServer{}
+	resp, err := server.Echo(context.Background(), &common.EchoRequest{Message: "hello"})
+	if err != nil {
+		t.Fatalf("Echo() error = %v", err)
+	}
+	if resp.GetMessage() != "hello" {
+		t.Errorf("Echo() message = %q, want %q", resp.GetMessage(), "hello")
 	}
 }
