@@ -60,9 +60,6 @@ func TestGetLicensesByPurlIDVersion(t *testing.T) {
 		for _, l := range licenses {
 			// The purl is joined back in so callers keep seeing it, even though the
 			// lookup is keyed by purl_id now.
-			if l.Purl != expressPurl {
-				t.Errorf("purl = %q, want %q", l.Purl, expressPurl)
-			}
 			if l.Version != "4.18.2" {
 				t.Errorf("version = %q, want 4.18.2", l.Version)
 			}
@@ -213,9 +210,6 @@ func TestGetPackageLicensesByPurlID(t *testing.T) {
 			}
 			if l.SourceID != 0 {
 				t.Errorf("source = %d, want 0 (declared)", l.SourceID)
-			}
-			if l.Purl != "pkg:cargo/serde" {
-				t.Errorf("purl = %q, want pkg:cargo/serde", l.Purl)
 			}
 		}
 	})

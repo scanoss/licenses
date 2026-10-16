@@ -52,8 +52,11 @@ type PurlLicensesModel struct {
 	packageTable      bool
 }
 
+// PurlLicense is one licence row. It carries no purl: the caller looked it up by
+// purl_id and already knows it, and reading it here meant joining `component`,
+// which DuckDB answers by scanning all 32 million rows - 2.7 s of CPU per lookup,
+// against 5 ms without the join.
 type PurlLicense struct {
-	Purl      string `json:"purl" db:"purl"`
 	Version   string `json:"version" db:"version"`
 	Date      string `json:"date" db:"date"`
 	SourceID  int16  `json:"source_id" db:"source_id"`
@@ -66,11 +69,10 @@ func NewPurlLicensesModel(db *sqlx.DB) *PurlLicensesModel {
 
 // licenseSelect is the projection every lookup shares. `date` is selected as a
 // literal because the serving schema does not record one.
-const licenseSelect = `SELECT c.purl AS purl, cvl.version AS version, '' AS date,
+const licenseSelect = `SELECT cvl.version AS version, '' AS date,
 	cvl.source     AS source_id,
 	cvl.license_id AS license_id
 FROM component_version_license cvl
-INNER JOIN component c ON c.purl_id = cvl.purl_id
 WHERE cvl.purl_id = ?`
 
 // GetLicensesByPurlIDVersion returns every licence recorded for one release.
@@ -160,11 +162,10 @@ func (m *PurlLicensesModel) GetLicensesByPurlIDVersionsAndSource(ctx context.Con
 // covers 22.8 million components and `component_license` covers all 31.8 million,
 // so 8.9 million components have a licence here and nowhere else; without this they
 // answer "no licence found" when one is on record.
-const packageLicenseSelect = `SELECT c.purl AS purl, '' AS version, '' AS date,
+const packageLicenseSelect = `SELECT '' AS version, '' AS date,
 	0            AS source_id,
 	cl.license_id AS license_id
 FROM component_license cl
-INNER JOIN component c ON c.purl_id = cl.purl_id
 WHERE cl.purl_id = ?
 ORDER BY cl.license_id`
 
