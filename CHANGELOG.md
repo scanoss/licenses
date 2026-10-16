@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Component and version resolution no longer goes through `go-component-helper`, which resolves against `all_urls`, `mines` and `versions` - none of which exist in the serving schema. It is replaced by `pkg/resolver`
 - Whether a licence is SPDX-approved is no longer a stored flag: mining's `licenses.is_spdx` has no serving equivalent, so it is derived the way the rest of the schema expresses it - the identifier appears in the SPDX registry
 - Binaries are built with `CGO_ENABLED=1`, and the runtime image moved to `debian:bookworm-slim` with `libstdc++6`. The DuckDB driver is a cgo binding, so a pure-Go build can no longer be produced
+- The licence lookups no longer join `component`. They did only to return a purl nothing read, and the unindexed join cost 2.7 s of CPU per lookup against 5 ms without it
+- A source link that points back at the component itself (11.4 of 13.9 million) is no longer followed. It cost an unindexed full scan of `component`, about 2.5 s of CPU, for a fallback that could only repeat the lookup
 
 ### Added
 - **A package-level licence fallback.** When no release of a component has a licence, the lookup falls to `component_license`, the export's per-component licence table. `component_version_license` covers 22,849,935 components and `component_license` covers all 31,761,182, so 8,911,247 components - 28% - have a licence recorded there and nowhere else, and used to be answered as having none. Its rows carry an empty version, because the licence genuinely is not attributed to a release; reporting the requested version would invent an attribution the database does not make. It runs only when `Lookup.SourcePriority` includes source 0, since everything `component_license` records is declared
@@ -41,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Verified against the production serving file (72.6 GiB): per-component licences, the batch endpoint, SPDX details including the `see_also` array and the reassembled OSADL block, and the 825-license SPDX cache. The package-level fallback was re-verified against the updated file: `pkg:github/commonroad/sandra` has no per-version licence and is answered from `component_license`, while `pkg:npm/express` keeps its per-release ones
 - The Dockerfile was already broken before this change - it built `./cmd/server`, which does not exist, and named the binary `scanoss-dependencies`. It now builds `./cmd/licenses-api` as `scanoss-licenses`
 - `make build_arm` now cross-compiles with cgo and needs an `aarch64` toolchain (set `CC`); the amd64 build is unaffected
+
+### Fixed
+- **Scoped npm packages, and other purls the export stores encoded or with qualifiers, resolve again.** `component.purl` keeps scoped npm and jsr names percent-encoded (`pkg:npm/%40angular/core`), qualifiers on generic, conda and cran keys, and a raw `+` in some rpm and deb names. The resolver decoded the purl and rebuilt the key, so 1.96 million components (6%) - plus 1.6 million qualified ones - answered `COMPONENT_NOT_FOUND` however they were spelled. It now tries the caller's spelling, the canonical rendering and the decoded form in one indexed lookup
+- **`Echo` is implemented.** It was the only service without it, so the echo endpoint answered HTTP 500
+- **The package-level licence fallback is skipped when the export has no `component_license`.** The 2026-10-16 export dropped it, and every lookup that reached the fallback logged a Catalog Error. The model probes for the table once; any other failure is retried
 
 ## [0.4.0] - 2026-06-22
 ### Added
