@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **An unauthenticated request could kill the server.** `LicenseServer` embedded the papi `LicenseServer` *interface* rather than the generated `UnimplementedLicenseServer`, and that field is nil, so any method the service does not implement dereferenced it and panicked, taking the whole process down. Two of the five - `Echo` and `GetObligations` - are unimplemented, so `POST /v2/licenses/echo` or `GET /v2/licenses/obligations` was enough. The generated struct answers those with an `Unimplemented` error instead. Pre-existing and unrelated to the serving migration
-- `go-grpc-helper` v0.16.0 → v0.17.0. A failed REST call no longer answers `200` with an empty, unparseable body when the handler set no `x-http-code` trailer: the gateway now falls back to the standard grpc-gateway error response, and gRPC status codes map to their HTTP equivalent, so `Unimplemented` is `501` rather than `500`. The release also carries the helper's `grpc` v1.83.1, `golang.org/x/net` v0.57.0 and OpenTelemetry v1.45.0 updates for their security advisories
+- Upgraded `google.golang.org/grpc` to v1.83.1, `golang.org/x/net` to v0.57.0 and the OpenTelemetry modules (`otel`, `otel/sdk`, `otlptrace`, `otlptracegrpc`) to v1.45.0 to fix open Dependabot security advisories
+- `go-grpc-helper` v0.16.0 → v0.17.0. A failed REST call no longer answers `200` with an empty, unparseable body when the handler set no `x-http-code` trailer: the gateway now falls back to the standard grpc-gateway error response, and gRPC status codes map to their HTTP equivalent, so `Unimplemented` is `501` rather than `500`
 
 ### Removed
 - `pkg/model/ldb_component_licenses.go`. It queried the mining `ldb_component_licenses` table and nothing instantiated it
