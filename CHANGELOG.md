@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-27
+
 ### Fixed
 - **The 0.5.0 binaries and Docker image do not start on Debian bookworm.** The DuckDB driver made the build cgo, so the binary links against glibc, and both builds ran on a newer one than the bookworm runtime: the release on `ubuntu-latest` and the image on `golang:1.25`, now Debian 13. They require `GLIBC_2.38` and bookworm has 2.36, so they failed at startup with "version `GLIBC_2.38' not found". The release now builds in a `golang:1.25-bookworm` container and the Dockerfile's build stage uses the same image; the binaries require glibc 2.34 at most
 
@@ -132,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default ports: REST `40057`, gRPC `50057`, and logging `66057`
 
 
+[0.5.1]: https://github.com/scanoss/licenses/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/scanoss/licenses/compare/v0.4.0...v0.5.0
 [0.3.1]: https://github.com/scanoss/licenses/releases/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/scanoss/licenses/releases/compare/v0.2.1...v0.3.0
