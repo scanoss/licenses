@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-27
+
 ### Changed
 - **The service now reads the serving knowledge base instead of the mining database.** The mining path is gone; there is no configuration that selects it. Endpoint routes and response shapes are unchanged
 - **Licences are keyed by `(purl_id, version)`.** The mining `purl_licenses` table carried the purl string on every row; serving records them in `component_version_license`, keyed by the component's UUID, so every lookup now takes a resolved `purl_id`. The purl is joined back into the result, so callers see what they saw before
@@ -127,6 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default ports: REST `40057`, gRPC `50057`, and logging `66057`
 
 
+[0.5.0]: https://github.com/scanoss/licenses/compare/v0.4.0...v0.5.0
 [0.3.1]: https://github.com/scanoss/licenses/releases/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/scanoss/licenses/releases/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/scanoss/licenses/releases/compare/v0.2.0...v0.2.1
