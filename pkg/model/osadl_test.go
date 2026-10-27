@@ -20,7 +20,12 @@ func TestGetOSDALByLicenseId(t *testing.T) {
 	defer CloseDB(db)
 	conn := sqliteConn(t, ctx, db) // Get a connection from the pool
 	defer CloseConn(conn)
-	err = loadTestSQLDataFiles(db, ctx, []string{"tests/osadl.sql"})
+	if err = LoadTestSchema(db, ctx); err != nil {
+		t.Fatalf("failed to load the test schema: %v", err)
+	}
+	// Both files: OSADL carries copyleft/patent_hints, and the three list tables
+	// carry the compatibilities that mining kept as arrays on the same row.
+	err = loadTestSQLDataFiles(db, ctx, []string{"tests/osadl.sql", "tests/osadl_lists.sql"})
 	if err != nil {
 		t.Fatalf("failed to load SQL test data: %v", err)
 	}

@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -46,11 +47,53 @@ func loadSQLData(db *sqlx.DB, ctx context.Context, filename string) error {
 	return nil
 }
 
-// LoadTestSQLData loads all the required test SQL files.
+// testDataFiles are the data fixtures loaded on top of the schema. They carry data
+// only; the tables come from testSchemaDDL in test_schema.go.
+var testDataFiles = []string{
+	"../model/tests/component.sql",
+	"../model/tests/component_version.sql",
+	"../model/tests/component_version_license.sql",
+	"../model/tests/component_license.sql",
+	"../model/tests/license.sql",
+	"../model/tests/spdx_license_data.sql",
+	"../model/tests/osadl.sql",
+	"../model/tests/osadl_lists.sql",
+}
+
+// idempotentDDL rewrites CREATE TABLE/INDEX into their IF NOT EXISTS form so a test
+// can load the schema more than once. testSchemaDDL transcribes production and must
+// not carry test-only clauses, so the rewrite happens here instead of in the constant.
+func idempotentDDL(sql string) string {
+	for _, kind := range []string{"TABLE", "INDEX"} {
+		bare := "CREATE " + kind + " "
+		guarded := bare + "IF NOT EXISTS "
+		// Normalise first, so an already-guarded statement is not double-guarded.
+		sql = strings.ReplaceAll(sql, guarded, bare)
+		sql = strings.ReplaceAll(sql, bare, guarded)
+	}
+	return sql
+}
+
+// LoadTestSchema creates the serving schema in the supplied DB. Call this before
+// loading any data fixture, since the fixtures do not define their own tables.
+// It is safe to call more than once on the same DB.
+func LoadTestSchema(db *sqlx.DB, ctx context.Context) error {
+	if _, err := db.ExecContext(ctx, idempotentDDL(testSchemaDDL)); err != nil {
+		return fmt.Errorf("failed to load the test schema: %w", err)
+	}
+	return nil
+}
+
+// LoadTestSQLData loads the serving schema plus all the test data fixtures.
 func LoadTestSQLData(db *sqlx.DB, ctx context.Context) error {
-	files := []string{"../model/tests/licenses.sql", "../model/tests/purl_licenses.sql", "../model/tests/all_urls.sql",
-		"../model/tests/mines.sql", "../model/tests/versions.sql"}
-	return loadTestSQLDataFiles(db, ctx, files)
+	// In-memory SQLite gives each pooled connection its OWN empty database, and the
+	// licence lookups run concurrently, so a second connection would find no tables.
+	// Pin the pool to one so every query sees the same database.
+	db.SetMaxOpenConns(1)
+	if err := LoadTestSchema(db, ctx); err != nil {
+		return err
+	}
+	return loadTestSQLDataFiles(db, ctx, testDataFiles)
 }
 
 // loadTestSQLDataFiles loads a list of test SQL files.

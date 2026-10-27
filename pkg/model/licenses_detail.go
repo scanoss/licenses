@@ -56,22 +56,31 @@ func NewLicenseDetailModel(db *sqlx.DB) *LicenseModel {
 }
 
 // GetLicenseByID retrieves license data by the given row ID.
+//
+// The mining table was `spdx_license_data` with all-lowercase, run-together
+// column names. Serving keeps the same 825 rows under the mixed-case
+// "SPDX_license_data", with the columns renamed and the identifier now SPDX_id,
+// so the projection aliases them back to what LicenseDetail expects.
 func (m *LicenseModel) GetLicenseByID(ctx context.Context, s *zap.SugaredLogger, licenseID string) (LicenseDetail, error) {
-	conn, err := NewConn(ctx, m.db)
-	if err != nil {
-		return LicenseDetail{}, err
-	}
 	licenseIDToUpper := strings.ToUpper(licenseID)
 	var license LicenseDetail
-	err = conn.QueryRowxContext(ctx,
-		"SELECT id,"+
-			" type,"+
-			" reference,"+
-			" isdeprecatedlicenseid, detailsurl, referencenumber, name, seealso, isosiapproved "+
-			"FROM spdx_license_data WHERE UPPER(id) = $1", licenseIDToUpper).StructScan(&license)
+	err := m.db.GetContext(ctx, &license, m.db.Rebind(
+		`SELECT "SPDX_id"        AS id,
+			COALESCE(type, '')       AS type,
+			COALESCE(reference, '')  AS reference,
+			is_deprecated            AS isdeprecatedlicenseid,
+			COALESCE(details_url,'') AS detailsurl,
+			reference_number         AS referencenumber,
+			COALESCE(name, '')       AS name,
+			-- pq.StringArray parses the Postgres array literal serving stores here;
+			-- the fallback must be the empty array, not the empty string, which it
+			-- cannot parse.
+			COALESCE(see_also, '{}') AS seealso,
+			is_osi_approved          AS isosiapproved
+		FROM "SPDX_license_data" WHERE UPPER("SPDX_id") = ?`), licenseIDToUpper)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.Errorf("Error: Failed to query license table for %v: %#v", licenseIDToUpper, err)
-		return LicenseDetail{}, fmt.Errorf("failed to query the license table: %v", err)
+		return LicenseDetail{}, fmt.Errorf("failed to query the license table: %w", err)
 	}
 	return license, nil
 }

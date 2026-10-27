@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	common "github.com/scanoss/papi/api/commonv2"
 	pb "github.com/scanoss/papi/api/licensesv2"
@@ -16,6 +17,8 @@ import (
 	"scanoss.com/licenses/pkg/dto"
 	models "scanoss.com/licenses/pkg/model"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 // Mock implementation using testify/mock
@@ -279,4 +282,96 @@ func TestLicenseUseCase_GetDetails(t *testing.T) {
 			fmt.Printf("Details: %#v\n", details)
 		})
 	}
+}
+
+// The fixture's pkg:cargo/serde has a licence in component_license and none in
+// component_version_license; pkg:npm/express has both, and its per-release licences
+// must win.
+const (
+	serdePurlID   = "3d9c7a14-2b6e-5f08-9c41-7ae0d5b12f63"
+	expressPurlID = "eea6a5f0-ac07-5faa-86d6-42a1f88f80bd"
+)
+
+func setupPackageFallbackUseCase(t *testing.T, sourcePriority []int16) (context.Context, LicenseUseCase, func()) {
+	t.Helper()
+	if err := zlog.NewSugaredDevLogger(); err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a sugared logger", err)
+	}
+	ctx := ctxzap.ToContext(context.Background(), zlog.L)
+	db, err := sqlx.Connect("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("error connecting to DB: %v", err)
+	}
+	if err = models.LoadTestSQLData(db, ctx); err != nil {
+		t.Fatalf("error loading test SQL data: %v", err)
+	}
+	config := &myconfig.ServerConfig{}
+	config.Lookup.SourcePriority = sourcePriority
+	return ctx, *NewLicenseUseCase(config, db, nil), func() {
+		models.CloseDB(db)
+		zlog.SyncZap()
+	}
+}
+
+func TestFetchPackageLicenceFallback(t *testing.T) {
+	declaredFirst := []int16{0, 31, 32}
+
+	t.Run("a component with no per-version licence falls back", func(t *testing.T) {
+		ctx, lu, cleanup := setupPackageFallbackUseCase(t, declaredFirst)
+		defer cleanup()
+		s := ctxzap.Extract(ctx).Sugar()
+
+		got := lu.fetchLicensesByPurlAndVersion(ctx, s, serdePurlID, "1.0.0")
+		if len(got) != 2 {
+			t.Fatalf("got %d licences, want 2 from component_license", len(got))
+		}
+		for _, l := range got {
+			// The package-level licence belongs to no release, so the row must not
+			// claim the version the caller asked about.
+			if l.Version != "" {
+				t.Errorf("version = %q, want empty", l.Version)
+			}
+		}
+	})
+
+	t.Run("per-version licences are not overridden", func(t *testing.T) {
+		ctx, lu, cleanup := setupPackageFallbackUseCase(t, []int16{1, 2, 0})
+		defer cleanup()
+		s := ctxzap.Extract(ctx).Sugar()
+
+		got := lu.fetchLicensesByPurlAndVersion(ctx, s, expressPurlID, "4.18.2")
+		if len(got) == 0 {
+			t.Fatal("no licences returned for a component that has per-version rows")
+		}
+		for _, l := range got {
+			if l.Version != "4.18.2" {
+				t.Errorf("version = %q, want 4.18.2: the fallback displaced real data", l.Version)
+			}
+			// 15 is express's component_license row. Seeing it here means the
+			// fallback ran when it should not have.
+			if l.LicenseID == 15 {
+				t.Error("package-level licence 15 returned although the release has its own")
+			}
+		}
+	})
+
+	t.Run("a priority list without the declared source does not fall back", func(t *testing.T) {
+		ctx, lu, cleanup := setupPackageFallbackUseCase(t, []int16{31, 32})
+		defer cleanup()
+		s := ctxzap.Extract(ctx).Sugar()
+
+		if got := lu.fetchLicensesByPurlAndVersion(ctx, s, serdePurlID, "1.0.0"); len(got) != 0 {
+			t.Errorf("got %d licences, want none: source 0 was not requested", len(got))
+		}
+	})
+
+	t.Run("an unversioned lookup falls back too", func(t *testing.T) {
+		ctx, lu, cleanup := setupPackageFallbackUseCase(t, declaredFirst)
+		defer cleanup()
+		s := ctxzap.Extract(ctx).Sugar()
+
+		if got := lu.fetchLicensesByPurl(ctx, s, serdePurlID, declaredFirst); len(got) != 2 {
+			t.Errorf("got %d licences, want 2 from component_license", len(got))
+		}
+	})
 }

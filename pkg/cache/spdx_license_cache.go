@@ -23,8 +23,8 @@ import (
 	"time"
 
 	gomodels "github.com/scanoss/go-models/pkg/models"
-	"github.com/scanoss/go-models/pkg/scanoss"
 	"go.uber.org/zap"
+	models "scanoss.com/licenses/pkg/model"
 )
 
 type SPDXLicenseCacheInterface interface {
@@ -36,16 +36,16 @@ type SPDXLicenseCacheInterface interface {
 type SPDXLicenseCache struct {
 	mu       sync.RWMutex
 	licenses map[string]*gomodels.SPDXLicenseDetail
-	sc       *scanoss.Client
+	registry *models.LicenseRegistryModel
 	logger   *zap.SugaredLogger
 	ticker   *time.Ticker
 	done     chan struct{}
 	interval time.Duration
 }
 
-func NewSPDXLicenseCache(sc *scanoss.Client, logger *zap.SugaredLogger, interval time.Duration) *SPDXLicenseCache {
+func NewSPDXLicenseCache(registry *models.LicenseRegistryModel, logger *zap.SugaredLogger, interval time.Duration) *SPDXLicenseCache {
 	return &SPDXLicenseCache{
-		sc:       sc,
+		registry: registry,
 		logger:   logger,
 		licenses: make(map[string]*gomodels.SPDXLicenseDetail),
 		interval: interval,
@@ -80,7 +80,7 @@ func (c *SPDXLicenseCache) GetLicenseByID(spdxID string) (*gomodels.SPDXLicenseD
 }
 
 func (c *SPDXLicenseCache) loadFromDB(ctx context.Context) error {
-	details, err := c.sc.Models.Licenses.GetAllSPDXLicensesDetails(ctx)
+	details, err := c.registry.GetAllSPDXLicenseDetails(ctx)
 	if err != nil {
 		return err
 	}
