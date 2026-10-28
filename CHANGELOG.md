@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+### Added
+- **The serving database is reloaded on `SIGHUP`** (`systemctl reload`). Production rotates the export daily by repointing the `full.duckdb` symlink, and a running process kept reading the file it had opened - serving the previous day's data, and holding the space of the file once the rotation deleted it - until it was restarted. On `SIGHUP` the service resolves `Database.Path` again and, when it names another file, opens that file read-only, checks that it answers and carries every table the file in use carries, and swaps it in. Requests already running finish on the previous file, which is closed with its last connection; idle connections to it are closed at once. A file that fails the checks is rejected, logged, and the current one stays in use. An unchanged path is a no-op. The other drivers are not reloaded, and the signal no longer terminates the process, which was Go's default
+- The systemd unit declares `ExecReload` and `ReloadPropagatedFrom=scanoss-services-api.service`: the rotation already reloads `scanoss-services-api` after repointing the symlink, and that reload now reaches this service too
+
 ## [0.5.2] - 2026-10-27
 
 ### Fixed
@@ -139,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default ports: REST `40057`, gRPC `50057`, and logging `66057`
 
 
+[0.6.0]: https://github.com/scanoss/licenses/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/scanoss/licenses/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/scanoss/licenses/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/scanoss/licenses/compare/v0.4.0...v0.5.0
